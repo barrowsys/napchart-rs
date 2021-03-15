@@ -1,0 +1,11 @@
+[package]
+name = "napchart"
+version = "0.1.0-alpha"
+authors = ["Ezra Barrow <barrow@tilde.team>"]
+edition = "2018"
+description = "Rust interface for the https://napchart.com API alpha"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+reqwest = { version = "0.11.2", features = ["blocking", "json"] }
