@@ -44,6 +44,10 @@ pub struct ChartLane {
 pub struct ChartElement {
     pub start: u16,
     pub end: u16,
+    pub data: ElementData,
+}
+#[derive(PartialEq, Debug, Clone)]
+pub struct ElementData {
     pub text: Option<String>,
     pub color: String,
 }
@@ -81,12 +85,14 @@ impl TryFrom<raw::Napchart> for Napchart {
                     lane.push(ChartElement {
                         start: e.start,
                         end: e.end,
-                        text: if e.text.is_empty() {
-                            None
-                        } else {
-                            Some(e.text.clone())
-                        },
-                        color: e.color.clone(),
+                        data: ElementData {
+                            text: if e.text.is_empty() {
+                                None
+                            } else {
+                                Some(e.text.clone())
+                            },
+                            color: e.color.clone(),
+                        }
                     });
                 }
                 vec
