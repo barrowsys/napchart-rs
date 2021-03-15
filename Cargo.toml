@@ -4,6 +4,11 @@ version = "0.1.0-alpha"
 authors = ["Ezra Barrow <barrow@tilde.team>"]
 edition = "2018"
 description = "Rust interface for the https://napchart.com API alpha"
+readme = "README.md"
+repository = "https://github.com/barrowsys/napchart-rs"
+license = "MIT"
+categories = ["api-bindings"]
+publish = false // Dont publish until closed alpha ends
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
