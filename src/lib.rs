@@ -62,7 +62,7 @@ impl TryFrom<raw::Napchart> for Napchart {
                 "circle" => ChartShape::Circle,
                 "wide" => ChartShape::Wide,
                 "line" => ChartShape::Line,
-                _ => Err(ErrorKind::InvalidChartShape(raw.chartData.shape.clone()))?,
+                _ => return Err(ErrorKind::InvalidChartShape(raw.chartData.shape.clone())),
             },
             lanes: {
                 let mut vec = Vec::with_capacity(raw.chartData.lanes);
@@ -92,7 +92,7 @@ impl TryFrom<raw::Napchart> for Napchart {
                                 Some(e.text.clone())
                             },
                             color: e.color.clone(),
-                        }
+                        },
                     });
                 }
                 vec
@@ -120,10 +120,8 @@ impl Napchart {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-    use std::iter::FromIterator;
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
+    // #[test]
+    // fn it_works() {
+    //     assert_eq!(2 + 2, 4);
+    // }
 }

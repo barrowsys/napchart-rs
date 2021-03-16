@@ -12,6 +12,9 @@
  * --------------------
  */
 
+//! Structs in this module directly map to the json representation of napcharts
+#![allow(non_snake_case)]
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
