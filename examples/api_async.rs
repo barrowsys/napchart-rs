@@ -12,11 +12,10 @@
  * --------------------
  */
 
-use napchart::Napchart;
-
-fn main() {
-    let small_chart = Napchart::get_from_server("cse2j").unwrap();
-    println!("small chart: {:#?}", small_chart);
-    let big_chart = Napchart::get_from_server("bwul9").unwrap();
-    println!("big chart: {:#?}", big_chart);
+#[tokio::main]
+async fn main() {
+    let small_chart = napchart::get("cse2j");
+    let big_chart = napchart::get("bwul9");
+    println!("small chart: {:#?}", small_chart.await.unwrap());
+    println!("big chart: {:#?}", big_chart.await.unwrap());
 }

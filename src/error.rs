@@ -23,7 +23,9 @@ pub enum ErrorKind {
     NotImplemented,
     InvalidChartShape(String),
     InvalidLane(usize, usize),
+    ElementOverlap((u16, u16), (u16, u16)),
     ReqwestError(reqwest::Error),
+    SerdeError(serde_json::Error),
 }
 
 pub type Result<T> = std::result::Result<T, ErrorKind>;
@@ -48,12 +50,16 @@ impl Display for ErrorKind {
             ErrorKind::InvalidLane(lane, max) => {
                 write!(fmt, "Element's lane {} is invalid! (max {})!", lane, max)
             }
+            ErrorKind::ElementOverlap((news, newe), (olds, olde)) => {
+                write!(fmt, "New chart element from {} to {} overlaps with existing element from {} to {}", news, newe, olds, olde)
+            }
             _ => write!(fmt, "Some error has occurred"),
         }
     }
 }
 
 impl_from!(reqwest::Error, ErrorKind::ReqwestError);
+impl_from!(serde_json::Error, ErrorKind::SerdeError);
 
 #[doc(hidden)]
 #[macro_export]

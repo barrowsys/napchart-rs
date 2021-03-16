@@ -17,12 +17,35 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::convert::AsRef;
+
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub(crate) struct Napchart {
     pub(crate) chartData: ChartData,
     pub(crate) chartid: String,
     pub(crate) title: Option<String>,
     pub(crate) description: Option<String>,
+}
+#[derive(Serialize, PartialEq, Debug)]
+pub(crate) struct UploadableChart<'a> {
+    pub(crate) chartData: &'a ChartData,
+    pub(crate) metaInfo: UploadableMetadata<'a>,
+}
+#[derive(Serialize, PartialEq, Debug)]
+pub(crate) struct UploadableMetadata<'a> {
+    pub(crate) title: &'a Option<String>,
+    pub(crate) description: &'a Option<String>,
+}
+impl Napchart {
+    pub(crate) fn as_uploadable<'a>(&'a self) -> UploadableChart<'a> {
+        UploadableChart {
+            chartData: &self.chartData,
+            metaInfo: UploadableMetadata {
+                title: &self.title,
+                description: &self.description,
+            },
+        }
+    }
 }
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub(crate) struct ChartData {
