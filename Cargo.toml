@@ -8,7 +8,6 @@ readme = "README.md"
 repository = "https://github.com/barrowsys/napchart-rs"
 license = "MIT"
 categories = ["api-bindings"]
-publish = false
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
