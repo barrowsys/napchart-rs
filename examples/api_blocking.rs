@@ -12,7 +12,7 @@
  * --------------------
  */
 
-use napchart::blocking;
+use napchart::api::blocking;
 
 fn main() {
     let mut small_chart = blocking::get("cse2j").unwrap();
@@ -21,9 +21,12 @@ fn main() {
     println!("big chart: {:#?}", big_chart);
     let mut new_chart = napchart::Napchart::blank().title("test").lanes(1).description("");
     let mut lane = new_chart.get_lane_mut(0).unwrap();
-    lane.add_element(480, 500).unwrap();
-    lane.add_element(470, 471).unwrap();
-    lane.add_element(480, 500).unwrap_err();
-    blocking::create(&mut new_chart).unwrap();
+    // lane.add_element(480, 500).unwrap();
+    lane.add_element(01, 72).unwrap();
+    lane.add_element(470, 472).unwrap();
+    lane.add_element(870, 873).unwrap();
+    lane.add_element(1270, 1274).unwrap();
+    let chartid = blocking::create(&mut new_chart).unwrap();
+    println!("https://napchart.com/{}", chartid);
     // blocking::create(&mut small_chart).unwrap();
 }

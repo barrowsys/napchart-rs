@@ -14,8 +14,8 @@
 
 #[tokio::main]
 async fn main() {
-    let small_chart = napchart::get("cse2j");
-    let big_chart = napchart::get("bwul9");
+    let small_chart = napchart::api::get("cse2j");
+    let big_chart = napchart::api::get("bwul9");
     println!("small chart: {:#?}", small_chart.await.unwrap());
     println!("big chart: {:#?}", big_chart.await.unwrap());
 }

@@ -19,6 +19,8 @@ use std::string::ToString;
 
 mod raw;
 
+pub mod api;
+
 pub mod error;
 use error::*;
 
@@ -245,47 +247,6 @@ impl TryFrom<raw::Napchart> for Napchart {
             },
         })
     }
-}
-
-#[cfg(feature = "blocking")]
-pub mod blocking {
-    use crate::error::*;
-    use crate::raw;
-    use crate::Napchart;
-    use std::convert::TryInto;
-    pub fn get<'a, T: Into<&'a str>>(chartid: T) -> Result<Napchart> {
-        let r: raw::Napchart = reqwest::blocking::get(format!(
-            "https://thumb.napchart.com/api/get?chartid={}",
-            chartid.into()
-        ))?
-        .json()?;
-        r.try_into()
-    }
-    pub fn create(chart: &mut Napchart) -> Result<String> {
-        let raw: raw::Napchart = chart.clone().try_into()?;
-        let raw = raw.as_uploadable();
-        println!("{:#?}", raw);
-        let client = reqwest::blocking::Client::new();
-        let res = serde_json::to_string_pretty(&raw)?;
-        println!("{}", res);
-        let res = client.post("https://thumb.napchart.com/api/create").json(&raw).send()?;
-        Err(ErrorKind::NotImplemented)
-    }
-}
-#[cfg(feature = "async")]
-pub async fn get<'a, T: Into<&'a str>>(chartid: T) -> Result<Napchart> {
-    let r: raw::Napchart = reqwest::get(format!(
-        "https://thumb.napchart.com/api/get?chartid={}",
-        chartid.into()
-    ))
-    .await?
-    .json()
-    .await?;
-    r.try_into()
-}
-#[cfg(feature = "async")]
-pub async fn create<'a, T: Into<&'a str>>(chart: &mut Napchart) -> Result<String> {
-    Err(ErrorKind::NotImplemented)
 }
 
 #[cfg(test)]
