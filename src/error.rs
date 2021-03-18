@@ -51,7 +51,11 @@ impl Display for ErrorKind {
                 write!(fmt, "Element's lane {} is invalid! (max {})!", lane, max)
             }
             ErrorKind::ElementOverlap((news, newe), (olds, olde)) => {
-                write!(fmt, "New chart element from {} to {} overlaps with existing element from {} to {}", news, newe, olds, olde)
+                write!(
+                    fmt,
+                    "New chart element from {} to {} overlaps with existing element from {} to {}",
+                    news, newe, olds, olde
+                )
             }
             _ => write!(fmt, "Some error has occurred"),
         }

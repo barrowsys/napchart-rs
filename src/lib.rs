@@ -14,7 +14,7 @@
 
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
-use std::iter::{repeat, once};
+use std::iter::{once, repeat};
 use std::string::ToString;
 
 mod raw;
@@ -136,7 +136,7 @@ impl ChartLane {
             data: ElementData {
                 text: None,
                 color: String::from("red"),
-            }
+            },
         });
         Ok(self.elements.last_mut().unwrap())
     }

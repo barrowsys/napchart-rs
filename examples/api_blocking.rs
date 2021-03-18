@@ -20,7 +20,10 @@ fn main() {
     println!("small chart: {:#?}", small_chart);
     let big_chart = client.get("bwul9").unwrap();
     println!("big chart: {:#?}", big_chart);
-    let mut new_chart = napchart::Napchart::blank().title("test").lanes(1).description("");
+    let mut new_chart = napchart::Napchart::blank()
+        .title("test")
+        .lanes(1)
+        .description("");
     let mut lane = new_chart.get_lane_mut(0).unwrap();
     // lane.add_element(480, 500).unwrap();
     lane.add_element(01, 72).unwrap();

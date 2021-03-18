@@ -89,8 +89,7 @@ pub mod blocking {
                 .json(&raw::Napchart::try_from(chart.clone())?.as_uploadable())
                 .send()?
                 .json::<CreateResponse>()?
-                .chartid
-                .to_string())
+                .chartid)
         }
     }
 }
