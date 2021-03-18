@@ -16,53 +16,81 @@ use crate::error::*;
 use crate::raw;
 use crate::Napchart;
 use serde::Deserialize;
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 
 #[derive(Deserialize)]
 struct CreateResponse {
     chartid: String,
 }
 
-#[cfg(feature = "blocking")]
-pub mod blocking {
-    use crate::error::*;
-    use crate::raw;
-    use crate::Napchart;
-    use std::convert::TryInto;
-    pub fn get<'a, T: Into<&'a str>>(chartid: T) -> Result<Napchart> {
-        let r: raw::Napchart = reqwest::blocking::get(format!(
-            "https://thumb.napchart.com/api/get?chartid={}",
-            chartid.into()
-        ))?
-        .json()?;
-        r.try_into()
-    }
-    pub fn create(chart: &mut Napchart) -> Result<String> {
-        let raw: raw::Napchart = chart.clone().try_into()?;
-        let raw = raw.as_uploadable();
-        println!("{:#?}", raw);
-        let client = reqwest::blocking::Client::new();
-        let res = serde_json::to_string_pretty(&raw)?;
-        println!("{}", res);
-        let res = client.post("https://thumb.napchart.com/alt/api/create").json(&raw).send()?;
-        println!("{:?}", res.status());
-        let res: super::CreateResponse = res.json()?;
-        Ok(res.chartid.to_string())
-    }
+#[cfg(feature = "async")]
+pub struct NapchartClient {
+    internal: reqwest::Client,
 }
 #[cfg(feature = "async")]
-pub async fn get<'a, T: Into<&'a str>>(chartid: T) -> Result<Napchart> {
-    let r: raw::Napchart = reqwest::get(format!(
-        "https://thumb.napchart.com/api/get?chartid={}",
-        chartid.into()
-    ))
-    .await?
-    .json()
-    .await?;
-    r.try_into()
-}
-#[cfg(feature = "async")]
-pub async fn create<'a, T: Into<&'a str>>(chart: &mut Napchart) -> Result<String> {
-    Err(ErrorKind::NotImplemented)
+impl NapchartClient {
+    pub fn new() -> Self {
+        NapchartClient {
+            internal: reqwest::Client::new(),
+        }
+    }
+    pub async fn get<'a, T: Into<&'a str>>(&self, chartid: T) -> Result<Napchart> {
+        self.internal
+            .get(format!(
+                "https://thumb.napchart.com/api/get?chartid={}",
+                chartid.into()
+            ))
+            .send()
+            .await?
+            .json::<raw::Napchart>()
+            .await?
+            .try_into()
+    }
+    pub async fn create<'a, T: Into<&'a str>>(&self, chart: &mut Napchart) -> Result<String> {
+        Ok(self
+            .internal
+            .post("https://thumb.napchart.com/alt/api/create")
+            .json(&raw::Napchart::try_from(chart.clone())?.as_uploadable())
+            .send()
+            .await?
+            .json::<CreateResponse>()
+            .await?
+            .chartid
+            .to_string())
+    }
 }
 
+#[cfg(feature = "blocking")]
+pub mod blocking {
+    use super::*;
+    pub struct NapchartClient {
+        internal: reqwest::blocking::Client,
+    }
+    impl NapchartClient {
+        pub fn new() -> Self {
+            NapchartClient {
+                internal: reqwest::blocking::Client::new(),
+            }
+        }
+        pub fn get<'a, T: Into<&'a str>>(&self, chartid: T) -> Result<Napchart> {
+            self.internal
+                .get(format!(
+                    "https://thumb.napchart.com/api/get?chartid={}",
+                    chartid.into()
+                ))
+                .send()?
+                .json::<raw::Napchart>()?
+                .try_into()
+        }
+        pub fn create(&self, chart: &mut Napchart) -> Result<String> {
+            Ok(self
+                .internal
+                .post("https://thumb.napchart.com/alt/api/create")
+                .json(&raw::Napchart::try_from(chart.clone())?.as_uploadable())
+                .send()?
+                .json::<CreateResponse>()?
+                .chartid
+                .to_string())
+        }
+    }
+}

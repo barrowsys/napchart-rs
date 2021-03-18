@@ -12,12 +12,13 @@
  * --------------------
  */
 
-use napchart::api::blocking;
+use napchart::api::blocking::NapchartClient;
 
 fn main() {
-    let mut small_chart = blocking::get("cse2j").unwrap();
+    let client = NapchartClient::new();
+    let mut small_chart = client.get("cse2j").unwrap();
     println!("small chart: {:#?}", small_chart);
-    let big_chart = blocking::get("bwul9").unwrap();
+    let big_chart = client.get("bwul9").unwrap();
     println!("big chart: {:#?}", big_chart);
     let mut new_chart = napchart::Napchart::blank().title("test").lanes(1).description("");
     let mut lane = new_chart.get_lane_mut(0).unwrap();
@@ -26,7 +27,7 @@ fn main() {
     lane.add_element(470, 472).unwrap();
     lane.add_element(870, 873).unwrap();
     lane.add_element(1270, 1274).unwrap();
-    let chartid = blocking::create(&mut new_chart).unwrap();
+    let chartid = client.create(&mut new_chart).unwrap();
     println!("https://napchart.com/{}", chartid);
     // blocking::create(&mut small_chart).unwrap();
 }

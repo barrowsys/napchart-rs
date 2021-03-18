@@ -140,6 +140,9 @@ impl ChartLane {
         });
         Ok(self.elements.last_mut().unwrap())
     }
+    pub fn elements_iter(&self) -> std::slice::Iter<ChartElement> {
+        self.elements.iter()
+    }
 }
 
 #[derive(PartialEq, Debug, Clone)]
