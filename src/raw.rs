@@ -17,7 +17,6 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::convert::AsRef;
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub(crate) struct Napchart {
