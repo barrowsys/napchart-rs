@@ -29,11 +29,6 @@ pub struct NapchartClient {
 }
 #[cfg(feature = "async")]
 impl NapchartClient {
-    pub fn new() -> Self {
-        NapchartClient {
-            internal: reqwest::Client::new(),
-        }
-    }
     pub async fn get<'a, T: Into<&'a str>>(&self, chartid: T) -> Result<Napchart> {
         self.internal
             .get(format!(
@@ -55,8 +50,15 @@ impl NapchartClient {
             .await?
             .json::<CreateResponse>()
             .await?
-            .chartid
-            .to_string())
+            .chartid)
+    }
+}
+#[cfg(feature = "async")]
+impl Default for NapchartClient {
+    fn default() -> Self {
+        NapchartClient {
+            internal: reqwest::Client::new(),
+        }
     }
 }
 
@@ -67,11 +69,6 @@ pub mod blocking {
         internal: reqwest::blocking::Client,
     }
     impl NapchartClient {
-        pub fn new() -> Self {
-            NapchartClient {
-                internal: reqwest::blocking::Client::new(),
-            }
-        }
         pub fn get<'a, T: Into<&'a str>>(&self, chartid: T) -> Result<Napchart> {
             self.internal
                 .get(format!(
@@ -90,6 +87,13 @@ pub mod blocking {
                 .send()?
                 .json::<CreateResponse>()?
                 .chartid)
+        }
+    }
+    impl Default for NapchartClient {
+        fn default() -> Self {
+            NapchartClient {
+                internal: reqwest::blocking::Client::new(),
+            }
         }
     }
 }

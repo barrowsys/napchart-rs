@@ -36,7 +36,7 @@ pub(crate) struct UploadableMetadata<'a> {
     pub(crate) description: &'a Option<String>,
 }
 impl Napchart {
-    pub(crate) fn as_uploadable<'a>(&'a self) -> UploadableChart<'a> {
+    pub(crate) fn as_uploadable(&'_ self) -> UploadableChart<'_> {
         UploadableChart {
             chartData: &self.chartData,
             metaInfo: UploadableMetadata {

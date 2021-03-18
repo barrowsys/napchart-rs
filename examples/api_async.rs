@@ -16,7 +16,7 @@ use napchart::api::NapchartClient;
 
 #[tokio::main]
 async fn main() {
-    let client = NapchartClient::new();
+    let client = NapchartClient::default();
     let small_chart = client.get("cse2j");
     let big_chart = client.get("bwul9");
     println!("small chart: {:#?}", small_chart.await.unwrap());

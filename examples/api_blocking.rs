@@ -15,7 +15,7 @@
 use napchart::api::blocking::NapchartClient;
 
 fn main() {
-    let client = NapchartClient::new();
+    let client = NapchartClient::default();
     let small_chart = client.get("cse2j").unwrap();
     println!("small chart: {:#?}", small_chart);
     let big_chart = client.get("bwul9").unwrap();
@@ -26,7 +26,7 @@ fn main() {
         .description("");
     let lane = new_chart.get_lane_mut(0).unwrap();
     // lane.add_element(480, 500).unwrap();
-    lane.add_element(01, 72).unwrap();
+    lane.add_element(1, 72).unwrap();
     lane.add_element(470, 472).unwrap();
     lane.add_element(870, 873).unwrap();
     lane.add_element(1270, 1274).unwrap();
