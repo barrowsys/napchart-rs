@@ -1,5 +1,6 @@
 # napchart-rs
 
+[github](https://github.com/barrowsys/napchart-rs)
 [crates.io](https://crates.io/crates/napchart/)
 [docs.rs](https://docs.rs/napchart)
 
