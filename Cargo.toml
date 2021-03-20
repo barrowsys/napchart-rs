@@ -1,6 +1,6 @@
 [package]
 name = "napchart"
-version = "0.1.1-alpha"
+version = "0.1.2-alpha"
 authors = ["Ezra Barrow <barrow@tilde.team>"]
 edition = "2018"
 description = "Rust interface for the https://napchart.com API alpha"
@@ -8,6 +8,9 @@ readme = "README.md"
 repository = "https://github.com/barrowsys/napchart-rs"
 license = "MIT"
 categories = ["api-bindings"]
+ 
+[package.metadata.docs.rs]
+all-features = true
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
@@ -26,3 +29,7 @@ async = []
 [[example]]
 name = "api_async"
 required-features = ["async"]
+
+[[example]]
+name = "api_blocking"
+required-features = ["blocking"]

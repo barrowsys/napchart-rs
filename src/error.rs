@@ -11,6 +11,7 @@
  * -Ezra Barrow
  * --------------------
  */
+//! napchart-rs errors
 
 use crate::impl_from;
 use std::{
@@ -18,17 +19,27 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
+/// napchart-rs error type
 #[derive(Debug)]
 pub enum ErrorKind {
+    /// Unimplemented function. This is my bad.
     NotImplemented,
+    /// Napchart's api returned a chartShape that we dont understand.
+    /// This is either my bad or napchart.com's bad.
     InvalidChartShape(String),
+    /// Napchart's api returned an element in a lane > the number of lanes.
+    /// This is napchart.com's bad.
     InvalidLane(usize, usize),
+    /// You tried to add an element to a lane but the space was already taken.
+    /// This is your bad.
     ElementOverlap((u16, u16), (u16, u16)),
+    /// An error occurred in reqwest.
     ReqwestError(reqwest::Error),
+    /// An error occurred in serde_json.
     SerdeError(serde_json::Error),
 }
 
-pub type Result<T> = std::result::Result<T, ErrorKind>;
+pub(crate) type Result<T> = std::result::Result<T, ErrorKind>;
 
 impl Error for ErrorKind {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {

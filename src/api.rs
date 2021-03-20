@@ -12,6 +12,11 @@
  * --------------------
  */
 
+//! The actual api clients
+//!
+//! if the "async" feature is enabled, then you can use napchart::api::AsyncClient  
+//! if the "blocking" feature is enabled, then you can use napchart::api::BlockingClient
+
 use crate::error::*;
 use crate::raw;
 use crate::Napchart;
@@ -24,11 +29,15 @@ struct CreateResponse {
 }
 
 #[cfg(feature = "async")]
-pub struct NapchartClient {
+/// Asynchronous api client for <https://napchart.com>
+pub struct AsyncClient {
     internal: reqwest::Client,
 }
 #[cfg(feature = "async")]
-impl NapchartClient {
+impl AsyncClient {
+    /// Asynchronously downloads the napchart with the given id from napchart.com
+    ///
+    /// Uses the <https://thumb.napchart.com/api/get> endpoint
     pub async fn get<'a, T: Into<&'a str>>(&self, chartid: T) -> Result<Napchart> {
         self.internal
             .get(format!(
@@ -41,7 +50,10 @@ impl NapchartClient {
             .await?
             .try_into()
     }
-    pub async fn create<'a, T: Into<&'a str>>(&self, chart: &mut Napchart) -> Result<String> {
+    /// Asynchronously creates a napchart on napchart.com and returns its id
+    ///
+    /// Uses the <https://thumb.napchart.com/alt/api/create> endpoint
+    pub async fn create(&self, chart: &Napchart) -> Result<String> {
         Ok(self
             .internal
             .post("https://thumb.napchart.com/alt/api/create")
@@ -52,48 +64,68 @@ impl NapchartClient {
             .await?
             .chartid)
     }
+    /// Asynchronously creates a napchart on napchart.com and sets the chartid of the napchart
+    /// struct to the assigned id
+    ///
+    /// Uses the <https://thumb.napchart.com/alt/api/create> endpoint
+    pub async fn create_new(&self, chart: &mut Napchart) -> Result<()> {
+        chart.chartid = Some(self.create(chart).await?);
+        Ok(())
+    }
 }
 #[cfg(feature = "async")]
-impl Default for NapchartClient {
+impl Default for AsyncClient {
     fn default() -> Self {
-        NapchartClient {
+        Self {
             internal: reqwest::Client::new(),
         }
     }
 }
 
 #[cfg(feature = "blocking")]
-pub mod blocking {
-    use super::*;
-    pub struct NapchartClient {
-        internal: reqwest::blocking::Client,
+/// Synchronous api client for <https://napchart.com>
+pub struct BlockingClient {
+    internal: reqwest::blocking::Client,
+}
+impl BlockingClient {
+    /// Synchronously downloads the napchart with the given id from napchart.com
+    ///
+    /// Uses the <https://thumb.napchart.com/api/get> endpoint
+    pub fn get<'a, T: Into<&'a str>>(&self, chartid: T) -> Result<Napchart> {
+        self.internal
+            .get(format!(
+                "https://thumb.napchart.com/api/get?chartid={}",
+                chartid.into()
+            ))
+            .send()?
+            .json::<raw::Napchart>()?
+            .try_into()
     }
-    impl NapchartClient {
-        pub fn get<'a, T: Into<&'a str>>(&self, chartid: T) -> Result<Napchart> {
-            self.internal
-                .get(format!(
-                    "https://thumb.napchart.com/api/get?chartid={}",
-                    chartid.into()
-                ))
-                .send()?
-                .json::<raw::Napchart>()?
-                .try_into()
-        }
-        pub fn create(&self, chart: &mut Napchart) -> Result<String> {
-            Ok(self
-                .internal
-                .post("https://thumb.napchart.com/alt/api/create")
-                .json(&raw::Napchart::try_from(chart.clone())?.as_uploadable())
-                .send()?
-                .json::<CreateResponse>()?
-                .chartid)
-        }
+    /// Synchronously creates a napchart on napchart.com and returns its id
+    ///
+    /// Uses the <https://thumb.napchart.com/alt/api/create> endpoint
+    pub fn create(&self, chart: &Napchart) -> Result<String> {
+        Ok(self
+            .internal
+            .post("https://thumb.napchart.com/alt/api/create")
+            .json(&raw::Napchart::try_from(chart.clone())?.as_uploadable())
+            .send()?
+            .json::<CreateResponse>()?
+            .chartid)
     }
-    impl Default for NapchartClient {
-        fn default() -> Self {
-            NapchartClient {
-                internal: reqwest::blocking::Client::new(),
-            }
+    /// Synchronously creates a napchart on napchart.com and sets the chartid of the napchart
+    /// struct to the assigned id
+    ///
+    /// Uses the <https://thumb.napchart.com/alt/api/create> endpoint
+    pub fn create_new(&self, chart: &mut Napchart) -> Result<()> {
+        chart.chartid = Some(self.create(chart)?);
+        Ok(())
+    }
+}
+impl Default for BlockingClient {
+    fn default() -> Self {
+        BlockingClient {
+            internal: reqwest::blocking::Client::new(),
         }
     }
 }

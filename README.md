@@ -1,5 +1,8 @@
 # napchart-rs
 
+[crates.io](https://crates.io/crates/napchart/)
+[docs.rs](https://docs.rs/napchart)
+
 a rust interface to the https://napchart.com API alpha. pretty barebones right now, as is the api.
 
 # Usage

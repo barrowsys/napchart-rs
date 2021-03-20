@@ -12,11 +12,11 @@
  * --------------------
  */
 
-use napchart::api::NapchartClient;
+use napchart::api::AsyncClient;
 
 #[tokio::main]
 async fn main() {
-    let client = NapchartClient::default();
+    let client = AsyncClient::default();
     let small_chart = client.get("cse2j");
     let big_chart = client.get("bwul9");
     println!("small chart: {:#?}", small_chart.await.unwrap());
