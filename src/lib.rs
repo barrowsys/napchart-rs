@@ -14,6 +14,10 @@
 
 //! The `napchart` crate provides strongly-typed bindings to the <https://napchart.com> API.
 //!
+//! [![GitHub last commit](https://img.shields.io/github/last-commit/barrowsys/napchart-rs)](https://github.com/barrowsys/napchart-rs)
+//! [![Crates.io](https://img.shields.io/crates/v/napchart)](https://crates.io/crates/napchart/)
+//! [![Docs.rs](https://docs.rs/napchart/badge.svg)](https://docs.rs/napchart)
+//!
 //! By default, only the api [BlockingClient](api::BlockingClient) is enabled with `default-features = ["blocking"]`.
 //! An [AsyncClient](api::AsyncClient) is also provided with crate feature `async`.
 //! The following examples will use the blocking client but the process is the same with async
