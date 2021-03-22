@@ -11,6 +11,6 @@ a rust interface to the https://napchart.com API alpha. pretty barebones right n
 Add to your Cargo.toml:
 ```
 [dependencies]
-napchart = "0.1.4"
+napchart = "0.1.5"
 ```
 See [docs.rs](https://docs.rs/napchart) for examples.
