@@ -33,5 +33,7 @@ fn main() {
     let chartid = client.create(&new_chart).unwrap();
     println!("https://napchart.com/{}", chartid);
     let mut file = File::create("/tmp/napchart_3tbkt.png").unwrap();
-    client.get_image("3tbkt", &mut file, (600, 600), None).unwrap();
+    client
+        .get_image("3tbkt", &mut file, (600, 600), None)
+        .unwrap();
 }
