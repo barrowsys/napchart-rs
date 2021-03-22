@@ -94,8 +94,8 @@ impl AsyncClient {
         if shape.is_some() {
             req = req.query(&[("shape", "circle")]);
         }
-        let resp = req.send().await?.text().await?;
-        io::copy(&mut resp.as_bytes(), dest)?;
+        let resp = req.send().await?.bytes().await?;
+        dest.write_all(&resp)?;
         Ok(())
     }
 }
@@ -167,11 +167,8 @@ impl BlockingClient {
         if shape.is_some() {
             req = req.query(&[("shape", "circle")]);
         }
-        println!("{:?}", req);
-        let resp = req.send()?;
-        println!("{:?}", resp);
-        let resp = resp.bytes()?;
-        dest.write(&resp)?;
+        let resp = req.send()?.bytes()?;
+        dest.write_all(&resp)?;
         Ok(())
     }
 }
