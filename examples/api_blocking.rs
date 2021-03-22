@@ -13,6 +13,7 @@
  */
 
 use napchart::api::BlockingClient;
+use std::fs::File;
 
 fn main() {
     let client = BlockingClient::default();
@@ -25,12 +26,12 @@ fn main() {
         .lanes(1)
         .description("");
     let lane = new_chart.get_lane_mut(0).unwrap();
-    // lane.add_element(480, 500).unwrap();
     lane.add_element(1, 72).unwrap();
     lane.add_element(470, 472).unwrap();
     lane.add_element(870, 873).unwrap();
     lane.add_element(1270, 1274).unwrap();
     let chartid = client.create(&new_chart).unwrap();
     println!("https://napchart.com/{}", chartid);
-    // blocking::create(&mut small_chart).unwrap();
+    let mut file = File::create("/tmp/napchart_3tbkt.png").unwrap();
+    client.get_image("3tbkt", &mut file, (600, 600), None).unwrap();
 }

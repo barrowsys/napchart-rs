@@ -23,7 +23,7 @@ use crate::Napchart;
 use serde::Deserialize;
 use std::convert::{TryFrom, TryInto};
 use std::fs::File;
-use std::io;
+use std::io::Write;
 
 #[derive(Deserialize)]
 struct CreateResponse {
@@ -167,8 +167,11 @@ impl BlockingClient {
         if shape.is_some() {
             req = req.query(&[("shape", "circle")]);
         }
-        let resp = req.send()?.text()?;
-        io::copy(&mut resp.as_bytes(), dest)?;
+        println!("{:?}", req);
+        let resp = req.send()?;
+        println!("{:?}", resp);
+        let resp = resp.bytes()?;
+        dest.write(&resp)?;
         Ok(())
     }
 }

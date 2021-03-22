@@ -54,6 +54,16 @@
 //! // client.create_new(&mut chart).unwrap();
 //! // assert!(chart.get_id().is_some());
 //! ```
+//!
+//! # Getting an image for a napchart
+//! ```
+//! use napchart::api::BlockingClient;
+//! use std::fs::File;
+//!
+//! let client = BlockingClient::default();
+//! let mut file = File::create("/tmp/napchart_3tbkt.png").unwrap();
+//! client.get_image("3tbkt", &mut file, (600, 600), None).unwrap();
+//! ```
 
 use std::collections::HashMap;
 use std::convert::TryFrom;
