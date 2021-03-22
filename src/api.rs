@@ -22,6 +22,8 @@ use crate::raw;
 use crate::Napchart;
 use serde::Deserialize;
 use std::convert::{TryFrom, TryInto};
+use std::fs::File;
+use std::io;
 
 #[derive(Deserialize)]
 struct CreateResponse {
@@ -70,6 +72,32 @@ impl AsyncClient {
         chart.chartid = Some(self.create(chart).await?);
         Ok(())
     }
+    /// Asynchronously downloads an image representation of a napchart from napchart.com and saves
+    /// it to the given &mut File
+    ///
+    /// Uses the <https://thumb.napchart.com/api/getImage> endpoint
+    pub async fn get_image<'a, T: Into<&'a str>>(
+        &self,
+        chartid: T,
+        dest: &mut File,
+        size: (u32, u32),
+        shape: Option<crate::ChartShape>,
+    ) -> Result<()> {
+        let mut req = self
+            .internal
+            .get("https://thumb.napchart.com/api/getImage")
+            .query(&[
+                ("chartid", chartid.into()),
+                ("width", &size.0.to_string()),
+                ("height", &size.1.to_string()),
+            ]);
+        if shape.is_some() {
+            req = req.query(&[("shape", "circle")]);
+        }
+        let resp = req.send().await?.text().await?;
+        io::copy(&mut resp.as_bytes(), dest)?;
+        Ok(())
+    }
 }
 #[cfg(feature = "async")]
 impl Default for AsyncClient {
@@ -115,6 +143,32 @@ impl BlockingClient {
     /// Uses the <https://thumb.napchart.com/alt/api/create> endpoint
     pub fn create_new(&self, chart: &mut Napchart) -> Result<()> {
         chart.chartid = Some(self.create(chart)?);
+        Ok(())
+    }
+    /// Synchronously downloads an image representation of a napchart from napchart.com and saves
+    /// it to the given &mut File
+    ///
+    /// Uses the <https://thumb.napchart.com/api/getImage> endpoint
+    pub fn get_image<'a, T: Into<&'a str>>(
+        &self,
+        chartid: T,
+        dest: &mut File,
+        size: (u32, u32),
+        shape: Option<crate::ChartShape>,
+    ) -> Result<()> {
+        let mut req = self
+            .internal
+            .get("https://thumb.napchart.com/api/getImage")
+            .query(&[
+                ("chartid", chartid.into()),
+                ("width", &size.0.to_string()),
+                ("height", &size.1.to_string()),
+            ]);
+        if shape.is_some() {
+            req = req.query(&[("shape", "circle")]);
+        }
+        let resp = req.send()?.text()?;
+        io::copy(&mut resp.as_bytes(), dest)?;
         Ok(())
     }
 }

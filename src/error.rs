@@ -37,6 +37,8 @@ pub enum ErrorKind {
     ReqwestError(reqwest::Error),
     /// An error occurred in serde_json.
     SerdeError(serde_json::Error),
+    /// An IO error occurred.
+    IoError(std::io::Error),
 }
 
 pub(crate) type Result<T> = std::result::Result<T, ErrorKind>;
@@ -45,6 +47,8 @@ impl Error for ErrorKind {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::ReqwestError(e) => Some(e),
+            Self::SerdeError(e) => Some(e),
+            Self::IoError(e) => Some(e),
             _ => None,
         }
     }
@@ -75,6 +79,7 @@ impl Display for ErrorKind {
 
 impl_from!(reqwest::Error, ErrorKind::ReqwestError);
 impl_from!(serde_json::Error, ErrorKind::SerdeError);
+impl_from!(std::io::Error, ErrorKind::IoError);
 
 #[doc(hidden)]
 #[macro_export]
