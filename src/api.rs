@@ -40,10 +40,8 @@ impl AsyncClient {
     /// Uses the <https://thumb.napchart.com/api/get> endpoint
     pub async fn get<'a, T: Into<&'a str>>(&self, chartid: T) -> Result<Napchart> {
         self.internal
-            .get(format!(
-                "https://thumb.napchart.com/api/get?chartid={}",
-                chartid.into()
-            ))
+            .get("https://thumb.napchart.com/api/get")
+            .query(&[("chartid", chartid.into())])
             .send()
             .await?
             .json::<raw::Napchart>()
@@ -93,10 +91,8 @@ impl BlockingClient {
     /// Uses the <https://thumb.napchart.com/api/get> endpoint
     pub fn get<'a, T: Into<&'a str>>(&self, chartid: T) -> Result<Napchart> {
         self.internal
-            .get(format!(
-                "https://thumb.napchart.com/api/get?chartid={}",
-                chartid.into()
-            ))
+            .get("https://thumb.napchart.com/api/get")
+            .query(&[("chartid", chartid.into())])
             .send()?
             .json::<raw::Napchart>()?
             .try_into()
