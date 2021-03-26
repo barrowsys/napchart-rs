@@ -22,7 +22,6 @@ use crate::raw;
 use crate::Napchart;
 use serde::Deserialize;
 use std::convert::{TryFrom, TryInto};
-use std::fs::File;
 use std::io::Write;
 
 #[derive(Deserialize)]
@@ -40,10 +39,10 @@ impl AsyncClient {
     /// Asynchronously downloads the napchart with the given id from napchart.com
     ///
     /// Uses the <https://thumb.napchart.com/api/get> endpoint
-    pub async fn get<'a, T: Into<&'a str>>(&self, chartid: T) -> Result<Napchart> {
+    pub async fn get<T: AsRef<str>>(&self, chartid: T) -> Result<Napchart> {
         self.internal
             .get("https://thumb.napchart.com/api/get")
-            .query(&[("chartid", chartid.into())])
+            .query(&[("chartid", chartid.as_ref())])
             .send()
             .await?
             .json::<raw::Napchart>()
@@ -76,10 +75,10 @@ impl AsyncClient {
     /// it to the given &mut File
     ///
     /// Uses the <https://thumb.napchart.com/api/getImage> endpoint
-    pub async fn get_image<'a, T: Into<&'a str>>(
+    pub async fn get_image<T: AsRef<str>, F: Write>(
         &self,
         chartid: T,
-        dest: &mut File,
+        dest: &mut F,
         size: (u32, u32),
         shape: Option<crate::ChartShape>,
     ) -> Result<()> {
@@ -87,7 +86,7 @@ impl AsyncClient {
             .internal
             .get("https://thumb.napchart.com/api/getImage")
             .query(&[
-                ("chartid", chartid.into()),
+                ("chartid", chartid.as_ref()),
                 ("width", &size.0.to_string()),
                 ("height", &size.1.to_string()),
             ]);
@@ -117,10 +116,10 @@ impl BlockingClient {
     /// Synchronously downloads the napchart with the given id from napchart.com
     ///
     /// Uses the <https://thumb.napchart.com/api/get> endpoint
-    pub fn get<'a, T: Into<&'a str>>(&self, chartid: T) -> Result<Napchart> {
+    pub fn get<T: AsRef<str>>(&self, chartid: T) -> Result<Napchart> {
         self.internal
             .get("https://thumb.napchart.com/api/get")
-            .query(&[("chartid", chartid.into())])
+            .query(&[("chartid", chartid.as_ref())])
             .send()?
             .json::<raw::Napchart>()?
             .try_into()
@@ -149,10 +148,10 @@ impl BlockingClient {
     /// it to the given &mut File
     ///
     /// Uses the <https://thumb.napchart.com/api/getImage> endpoint
-    pub fn get_image<'a, T: Into<&'a str>>(
+    pub fn get_image<T: AsRef<str>, F: Write>(
         &self,
         chartid: T,
-        dest: &mut File,
+        dest: &mut F,
         size: (u32, u32),
         shape: Option<crate::ChartShape>,
     ) -> Result<()> {
@@ -160,7 +159,7 @@ impl BlockingClient {
             .internal
             .get("https://thumb.napchart.com/api/getImage")
             .query(&[
-                ("chartid", chartid.into()),
+                ("chartid", chartid.as_ref()),
                 ("width", &size.0.to_string()),
                 ("height", &size.1.to_string()),
             ]);
@@ -177,5 +176,66 @@ impl Default for BlockingClient {
         BlockingClient {
             internal: reqwest::blocking::Client::new(),
         }
+    }
+}
+
+#[cfg(test)]
+#[cfg(feature = "async")]
+mod tests {
+    use super::*;
+    use tokio::task::spawn_blocking;
+    #[tokio::test]
+    async fn get_eq() {
+        let bres = spawn_blocking(move || {
+            let bclient = BlockingClient::default();
+            bclient.get("bwul9").unwrap()
+        })
+        .await
+        .unwrap();
+        let aclient = AsyncClient::default();
+        let ares = aclient.get("bwul9").await.unwrap();
+        assert_eq!(ares, bres);
+    }
+    #[tokio::test]
+    async fn create_eq() {
+        let mut achart = Napchart::default().title("test").description("");
+        let lane = achart.add_lane();
+        lane.add_element(1, 72).unwrap();
+        lane.add_element(470, 472).unwrap();
+        lane.add_element(870, 873).unwrap();
+        lane.add_element(1270, 1274).unwrap();
+        let bchart = achart.clone();
+        let bres = spawn_blocking(move || {
+            let bclient = BlockingClient::default();
+            let bid = bclient.create(&bchart).unwrap();
+            bclient.get(&bid).unwrap()
+        })
+        .await
+        .unwrap();
+        let aclient = AsyncClient::default();
+        let aid = aclient.create(&achart).await.unwrap();
+        let ares = aclient.get(&aid).await.unwrap();
+        assert!(ares.chart_eq(&bres));
+    }
+    #[tokio::test]
+    async fn get_image_eq() {
+        use std::io::Cursor;
+        let bfile = spawn_blocking(move || {
+            let bclient = BlockingClient::default();
+            let mut bfile = Cursor::new(Vec::new());
+            bclient
+                .get_image("bwul9", &mut bfile, (600, 600), None)
+                .unwrap();
+            bfile
+        })
+        .await
+        .unwrap();
+        let aclient = AsyncClient::default();
+        let mut afile = Cursor::new(Vec::new());
+        aclient
+            .get_image("bwul9", &mut afile, (600, 600), None)
+            .await
+            .unwrap();
+        assert_eq!(afile, bfile);
     }
 }

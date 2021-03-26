@@ -11,7 +11,7 @@
  * -Ezra Barrow
  * --------------------
  */
-
+#![deny(missing_docs)]
 //! The `napchart` crate provides strongly-typed bindings to the <https://napchart.com> API.
 //!
 //! [![GitHub last commit](https://img.shields.io/github/last-commit/barrowsys/napchart-rs)](https://github.com/barrowsys/napchart-rs)
@@ -82,8 +82,11 @@ use error::Result;
 /// A napchart, as seen on <https://napchart.com/>
 pub struct Napchart {
     chartid: Option<String>,
+    /// The title of the napchart, or None if empty
     pub title: Option<String>,
+    /// The description of the napchart, or None if empty
     pub description: Option<String>,
+    /// The default shape of the napchart on napchart.com
     pub shape: ChartShape,
     /// A vector of all the lanes in the chart.
     /// In circular and wide charts, lane 0 is the innermost and smallest.
@@ -93,11 +96,21 @@ pub struct Napchart {
     pub color_tags: HashMap<String, String>,
 }
 impl Napchart {
+    #[allow(non_autolinks)]
     /// Get the napchart.com ID of this chart, if set.
     /// This is set by the "get" and "create_new" api functions.  
     /// The ID directly gives you the URL to the napchart, as in https://napchart.com/idcode.
     pub fn get_id(&self) -> Option<&String> {
         self.chartid.as_ref()
+    }
+    /// Check if two napcharts are equal, ignoring chartid.
+    /// Used by the API tests to compare the result of create() for both clients
+    pub fn chart_eq(&self, other: &Napchart) -> bool {
+        self.title == other.title
+            && self.description == other.description
+            && self.shape == other.shape
+            && self.lanes == other.lanes
+            && self.color_tags == other.color_tags
     }
     /// Append a new blank lane to the chart and returns a mutable reference to it.
     pub fn add_lane(&mut self) -> &mut ChartLane {
@@ -169,6 +182,7 @@ impl Default for Napchart {
     }
 }
 /// The shape of a napchart
+#[allow(missing_docs)]
 #[derive(PartialEq, Debug, Clone)]
 pub enum ChartShape {
     Circle,
@@ -187,6 +201,8 @@ impl ToString for ChartShape {
 /// A single lane of a napchart
 #[derive(PartialEq, Debug, Clone)]
 pub struct ChartLane {
+    /// Whether the lane is locked on napchart.com.
+    /// Has no effect on struct functionality.
     pub locked: bool,
     elements: Vec<ChartElement>,
 }
@@ -242,14 +258,19 @@ impl ChartLane {
 /// A single napchart element
 #[derive(PartialEq, Debug, Clone)]
 pub struct ChartElement {
+    /// The start position of the element as minutes past midnight
     pub start: u16,
+    /// The end position of the element as minutes past midnight
     pub end: u16,
+    /// Additional element metadata
     pub data: ElementData,
 }
 /// Additional metadata for a ChartElement
 #[derive(PartialEq, Debug, Clone)]
 pub struct ElementData {
+    /// The text annotation on an element
     pub text: Option<String>,
+    /// The element's color as a string, e.g. "red" "blue" "green"
     pub color: String,
 }
 impl ChartElement {
@@ -343,6 +364,8 @@ impl TryFrom<raw::Napchart> for Napchart {
                 _ => return Err(ErrorKind::InvalidChartShape(raw.chartData.shape.clone())),
             },
             lanes: {
+                // let lane_count =
+                //     usize::try_from(raw.chartData.lanes).or(Err(ErrorKind::NotUsizeable))?;
                 let mut vec = Vec::with_capacity(raw.chartData.lanes);
                 for i in 0..raw.chartData.lanes {
                     vec.push(ChartLane {
@@ -388,8 +411,40 @@ impl TryFrom<raw::Napchart> for Napchart {
 
 #[cfg(test)]
 mod tests {
-    // #[test]
-    // fn it_works() {
-    //     assert_eq!(2 + 2, 4);
-    // }
+    use super::*;
+    #[test]
+    fn title_builder() {
+        let nc = Napchart {
+            title: Some(String::from("Test Title")),
+            ..Default::default()
+        };
+        let nc2 = Napchart::default().title("Test Title");
+        assert_eq!(nc, nc2);
+    }
+    #[test]
+    fn description_builder() {
+        let nc = Napchart {
+            description: Some(String::from("Test Description")),
+            ..Default::default()
+        };
+        let nc2 = Napchart::default().description("Test Description");
+        assert_eq!(nc, nc2);
+    }
+    #[test]
+    fn shape_builder() {
+        let nc = Napchart {
+            shape: ChartShape::Wide,
+            ..Default::default()
+        };
+        let nc2 = Napchart::default().shape(ChartShape::Wide);
+        assert_eq!(nc, nc2);
+    }
+    #[test]
+    fn lanes_builder() {
+        let mut nc = Napchart::default();
+        nc.add_lane();
+        nc.add_lane();
+        let nc2 = Napchart::default().lanes(2);
+        assert_eq!(nc, nc2);
+    }
 }

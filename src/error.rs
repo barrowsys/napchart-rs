@@ -33,6 +33,9 @@ pub enum ErrorKind {
     /// You tried to add an element to a lane but the space was already taken.
     /// This is your bad.
     ElementOverlap((u16, u16), (u16, u16)),
+    // /// Api returned a number that should have been a usize but wasn't (in an unhandleable way)
+    // /// This is probably napchart.com's bad.
+    // NotUsizeable,
     /// An error occurred in reqwest.
     ReqwestError(reqwest::Error),
     /// An error occurred in serde_json.
