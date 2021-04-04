@@ -14,6 +14,7 @@
 //! napchart-rs errors
 
 use crate::impl_from;
+use chrono::ParseError;
 use std::{
     error::Error,
     fmt::{self, Display, Formatter},
@@ -27,6 +28,7 @@ pub enum ErrorKind {
     /// Napchart's api returned a chartShape that we dont understand.
     /// This is either my bad or napchart.com's bad.
     InvalidChartShape(String),
+    InvalidChartColor(String),
     /// Napchart's api returned an element in a lane > the number of lanes.
     /// This is napchart.com's bad.
     InvalidLane(usize, usize),
@@ -42,6 +44,8 @@ pub enum ErrorKind {
     SerdeError(serde_json::Error),
     /// An IO error occurred.
     IoError(std::io::Error),
+    /// An error occurred parsing a time
+    ChronoParseError(chrono::ParseError),
 }
 
 pub(crate) type Result<T> = std::result::Result<T, ErrorKind>;
@@ -83,6 +87,7 @@ impl Display for ErrorKind {
 impl_from!(reqwest::Error, ErrorKind::ReqwestError);
 impl_from!(serde_json::Error, ErrorKind::SerdeError);
 impl_from!(std::io::Error, ErrorKind::IoError);
+impl_from!(chrono::ParseError, ErrorKind::ChronoParseError);
 
 #[doc(hidden)]
 #[macro_export]

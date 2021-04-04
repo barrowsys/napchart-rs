@@ -11,7 +11,9 @@
  * -Ezra Barrow
  * --------------------
  */
-#![deny(missing_docs)]
+// #![deny(missing_docs)]
+#![allow(unused_imports)]
+#![allow(dead_code)]
 //! The `napchart` crate provides strongly-typed bindings to the <https://napchart.com> API.
 //!
 //! [![GitHub last commit](https://img.shields.io/github/last-commit/barrowsys/napchart-rs)](https://github.com/barrowsys/napchart-rs)
@@ -29,30 +31,31 @@
 //! use napchart::api::BlockingClient;
 //!
 //! let client = BlockingClient::default();
-//! let chart = client.get("3tbkt").unwrap();
-//! assert_eq!(chart.get_id(), Some(&String::from("3tbkt")));
-//! assert_eq!(chart.title, Some(String::from("State test chart")));
-//! assert_eq!(chart.shape, napchart::ChartShape::Circle);
-//! assert_eq!(chart.lanes.len(), 1);
+//! let rchart = client.get_chart("3tbkt").unwrap();
+//! assert_eq!(rchart.chartid, String::from("3tbkt"));
+//! assert_eq!(rchart.title, Some(String::from("State test chart")));
+//! assert_eq!(rchart.chart.shape, napchart::ChartShape::Circle);
+//! assert_eq!(rchart.chart.lanes.len(), 1);
 //! ```
 //!
 //! # `/create`ing a new napchart
 //! ```
 //! use napchart::api::BlockingClient;
 //! use napchart::Napchart;
+//! use napchart::ChartColor;
 //!
 //! let client = BlockingClient::default();
-//! let mut chart = Napchart::default()
-//!     .title("lib.rs doctest")
-//!     .description("https://crates.io/crates/napchart");
+//! let mut chart = Napchart::default();
 //! let lane = chart.add_lane();
 //! lane.add_element(420, 1260)
 //!     .unwrap()
 //!     .text("Nighttime")
-//!     .color("grey");
-//! assert!(chart.get_id().is_none());
-//! // client.create_new(&mut chart).unwrap();
-//! // assert!(chart.get_id().is_some());
+//!     .color(ChartColor::Gray);
+//! let upload_builder = chart.upload()
+//!     .title("lib.rs doctest")
+//!     .description("https://crates.io/crates/napchart");
+//! let remote_chart = client.create_snapshot(upload_builder).unwrap();
+//! assert!(!remote_chart.chartid.is_empty());
 //! ```
 //!
 //! # Getting an image for a napchart
@@ -65,9 +68,11 @@
 //! client.get_image("3tbkt", &mut file, (600, 600), None).unwrap();
 //! ```
 
+use chrono::prelude::*;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::iter::repeat;
+use std::str::FromStr;
 use std::string::ToString;
 
 mod raw;
@@ -81,11 +86,6 @@ use error::Result;
 #[derive(PartialEq, Debug, Clone)]
 /// A napchart, as seen on <https://napchart.com/>
 pub struct Napchart {
-    chartid: Option<String>,
-    /// The title of the napchart, or None if empty
-    pub title: Option<String>,
-    /// The description of the napchart, or None if empty
-    pub description: Option<String>,
     /// The default shape of the napchart on napchart.com
     pub shape: ChartShape,
     /// A vector of all the lanes in the chart.
@@ -93,25 +93,27 @@ pub struct Napchart {
     /// In line charts, lane 0 is at the bottom.
     pub lanes: Vec<ChartLane>,
     /// Keys are simple html color names, values are the associated tag.
-    pub color_tags: HashMap<String, String>,
+    pub color_tags: HashMap<ChartColor, String>,
 }
 impl Napchart {
-    #[allow(non_autolinks)]
-    /// Get the napchart.com ID of this chart, if set.
-    /// This is set by the "get" and "create_new" api functions.  
-    /// The ID directly gives you the URL to the napchart, as in https://napchart.com/idcode.
-    pub fn get_id(&self) -> Option<&String> {
-        self.chartid.as_ref()
-    }
-    /// Check if two napcharts are equal, ignoring chartid.
-    /// Used by the API tests to compare the result of create() for both clients
-    pub fn chart_eq(&self, other: &Napchart) -> bool {
-        self.title == other.title
-            && self.description == other.description
-            && self.shape == other.shape
-            && self.lanes == other.lanes
-            && self.color_tags == other.color_tags
-    }
+    //TODO: Replace Napchart.get_id
+    // #[allow(non_autolinks)]
+    // /// Get the napchart.com ID of this chart, if set.
+    // /// This is set by the "get" and "create_new" api functions.
+    // /// The ID directly gives you the URL to the napchart, as in https://napchart.com/idcode.
+    // pub fn get_id(&self) -> Option<&String> {
+    //     self.chartid.as_ref()
+    // }
+    // TODO: Replace Napchart.chart_eq
+    // /// Check if two napcharts are equal, ignoring chartid.
+    // /// Used by the API tests to compare the result of create() for both clients
+    // pub fn chart_eq(&self, other: &Napchart) -> bool {
+    //     self.title == other.title
+    //         && self.description == other.description
+    //         && self.shape == other.shape
+    //         && self.lanes == other.lanes
+    //         && self.color_tags == other.color_tags
+    // }
     /// Append a new blank lane to the chart and returns a mutable reference to it.
     pub fn add_lane(&mut self) -> &mut ChartLane {
         self.lanes.push(ChartLane {
@@ -124,34 +126,25 @@ impl Napchart {
     pub fn get_lane_mut(&mut self, i: usize) -> Option<&mut ChartLane> {
         self.lanes.get_mut(i)
     }
+    pub fn upload(&self) -> api::UploadBuilder {
+        api::UploadBuilder::new(self)
+    }
+    ////TODO: should this be public?
+    //fn sort_all_lanes_in_place(&mut self) {
+    //    self.lanes.iter_mut().for_each(|l| l.sort_in_place());
+    //}
 }
 /// Builder functions to create new napcharts.
 ///
 /// ```
-/// # use napchart::Napchart;
+/// # use napchart::*;
 /// let chart = Napchart::default()
-///                 .title("Title1")
-///                 .description("Cool Chart")
-///                 .lanes(3);
-/// assert_eq!(chart.title, Some("Title1".to_string()));
-/// assert_eq!(chart.description, Some("Cool Chart".to_string()));
+///                 .lanes(3)
+///                 .shape(ChartShape::Wide);
 /// assert_eq!(chart.lanes.len(), 3);
+/// assert_eq!(chart.shape, ChartShape::Wide);
 /// ```
 impl Napchart {
-    /// Return Napchart with title set
-    pub fn title<'a, T: Into<&'a str>>(self, title: T) -> Self {
-        Self {
-            title: Some(title.into().to_string()),
-            ..self
-        }
-    }
-    /// Return Napchart with description set
-    pub fn description<'a, T: Into<&'a str>>(self, description: T) -> Self {
-        Self {
-            description: Some(description.into().to_string()),
-            ..self
-        }
-    }
     /// Return Napchart with shape set
     pub fn shape(self, shape: ChartShape) -> Self {
         Self { shape, ..self }
@@ -172,13 +165,97 @@ impl Napchart {
 impl Default for Napchart {
     fn default() -> Self {
         Self {
-            chartid: None,
-            title: None,
-            description: None,
             shape: ChartShape::Circle,
             lanes: Vec::new(),
             color_tags: HashMap::new(),
         }
+    }
+}
+#[derive(PartialEq, Debug, Clone)]
+pub struct RemoteNapchart {
+    pub chartid: String, //TODO: Replace this with an Option<ChartId>
+    /// The title of the napchart, or None if empty
+    pub title: Option<String>,
+    /// The description of the napchart, or None if empty
+    pub description: Option<String>,
+    /// The username that saved this napchart, or None if anonymous
+    pub username: Option<String>,
+    /// The time that this chart was last saved
+    pub last_updated: DateTime<Utc>,
+    /// True if this napchart was saved as a snapshot
+    pub is_snapshot: bool,
+    /// The public link to this napchart as given by the API
+    /// We should be able to generate this from the other metadata,
+    /// but we'll keep it for now to test against.
+    pub(crate) public_link: Option<String>,
+    pub chart: Napchart,
+}
+////TODO: is this really the best way to handle ChartId?
+//#[derive(PartialEq, Debug, Clone)]
+//pub enum ChartId {
+//    CompatFiveChar(String),
+//    CompatSixChar(String),
+//    Snapshot(String),
+//    UserChart(String),
+//    Unhandled(String),
+//}
+// impl ToString for ChartId {
+//     fn to_string(&self) -> String {
+//         use ChartId::*;
+//         match self {
+//             CompatFiveChar(s) => s.to_string(),
+//             CompatSixChar(s) => s.to_string(),
+//             Snapshot(s) => s.to_string(),
+//             UserChart(s) => s.to_string(),
+//             Unhandled(s) => s.to_string(),
+//         }
+//     }
+// }
+#[allow(missing_docs)]
+#[derive(PartialEq, Eq, Debug, Clone, Hash)]
+pub enum ChartColor {
+    Red,
+    Blue,
+    Brown,
+    Green,
+    Gray,
+    Yellow,
+    Purple,
+    Pink,
+}
+impl Default for ChartColor {
+    fn default() -> Self {
+        Self::Red
+    }
+}
+impl ToString for ChartColor {
+    fn to_string(&self) -> String {
+        match self {
+            ChartColor::Red => String::from("red"),
+            ChartColor::Blue => String::from("blue"),
+            ChartColor::Brown => String::from("brown"),
+            ChartColor::Green => String::from("green"),
+            ChartColor::Gray => String::from("gray"),
+            ChartColor::Yellow => String::from("yellow"),
+            ChartColor::Purple => String::from("purple"),
+            ChartColor::Pink => String::from("pink"),
+        }
+    }
+}
+impl FromStr for ChartColor {
+    type Err = ErrorKind;
+    fn from_str(s: &str) -> Result<Self> {
+        Ok(match s {
+            "red" => ChartColor::Red,
+            "blue" => ChartColor::Blue,
+            "brown" => ChartColor::Brown,
+            "green" => ChartColor::Green,
+            "gray" => ChartColor::Gray,
+            "yellow" => ChartColor::Yellow,
+            "purple" => ChartColor::Purple,
+            "pink" => ChartColor::Pink,
+            _ => return Err(ErrorKind::InvalidChartColor(s.to_string())),
+        })
     }
 }
 /// The shape of a napchart
@@ -223,6 +300,8 @@ impl ChartLane {
     /// If the element would overlap with an existing element, the function fails.
     /// Returns a mutable reference to the new element.
     pub fn add_element(&mut self, start: u16, end: u16) -> Result<&mut ChartElement> {
+        assert!(start <= 1440);
+        assert!(end <= 1440);
         let mut elems: Vec<(u16, u16, usize)> = Vec::new();
         for (i, e) in self.elements.iter().enumerate() {
             if e.start < e.end {
@@ -244,7 +323,7 @@ impl ChartLane {
             end,
             data: ElementData {
                 text: None,
-                color: String::from("red"),
+                color: ChartColor::default(),
             },
         });
         Ok(self.elements.last_mut().unwrap())
@@ -253,10 +332,22 @@ impl ChartLane {
     pub fn elements_iter(&self) -> std::slice::Iter<ChartElement> {
         self.elements.iter()
     }
+    ////TODO: should this be public?
+    //fn sort_in_place(&mut self) {
+    //    self.elements.sort_unstable_by_key(|elem| elem.end);
+    //}
+    //TODO: should this be public?
+    fn semantic_eq(&self, other: &Self) -> bool {
+        let locked_eq = self.locked == other.locked;
+        let selems: std::collections::HashSet<&ChartElement> = self.elements_iter().collect();
+        let oelems: std::collections::HashSet<&ChartElement> = other.elements_iter().collect();
+        let elems_eq = selems == oelems;
+        locked_eq && elems_eq
+    }
 }
 
 /// A single napchart element
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone, Hash)]
 pub struct ChartElement {
     /// The start position of the element as minutes past midnight
     pub start: u16,
@@ -266,18 +357,18 @@ pub struct ChartElement {
     pub data: ElementData,
 }
 /// Additional metadata for a ChartElement
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone, Default, Hash)]
 pub struct ElementData {
     /// The text annotation on an element
     pub text: Option<String>,
     /// The element's color as a string, e.g. "red" "blue" "green"
-    pub color: String,
+    pub color: ChartColor,
 }
 impl ChartElement {
     /// &mut builder function to set the text of the element.
     /// Returns the reference for following functions.
     /// ```
-    /// # use napchart::Napchart;
+    /// # use napchart::{Napchart, ChartColor};
     /// let mut chart = Napchart::default();
     /// let mut lane = chart.add_lane();
     /// lane.add_element(0, 120)
@@ -286,7 +377,7 @@ impl ChartElement {
     /// lane.add_element(120, 330)
     ///     .unwrap()
     ///     .text("SWS Core")
-    ///     .color("blue");
+    ///     .color(ChartColor::Blue);
     /// ```
     pub fn text<T: ToString>(&mut self, text: T) -> &mut Self {
         self.data.text = Some(text.to_string());
@@ -295,115 +386,128 @@ impl ChartElement {
     /// &mut builder function to set the color of the element.
     /// Returns the reference for following functions.
     /// ```
-    /// # use napchart::Napchart;
+    /// # use napchart::{Napchart, ChartColor};
     /// let mut chart = Napchart::default();
     /// let mut lane = chart.add_lane();
     /// lane.add_element(0, 120)
     ///     .unwrap()
-    ///     .color("grey");
+    ///     .color(ChartColor::Gray);
     /// lane.add_element(120, 330)
     ///     .unwrap()
-    ///     .color("blue")
+    ///     .color(ChartColor::Blue)
     ///     .text("SWS Core");
     /// ```
-    pub fn color<T: ToString>(&mut self, color: T) -> &mut Self {
-        self.data.color = color.to_string();
+    pub fn color(&mut self, color: ChartColor) -> &mut Self {
+        self.data.color = color;
         self
     }
 }
 
-impl TryFrom<Napchart> for raw::Napchart {
+impl TryFrom<Napchart> for raw::ChartSchema {
     type Error = ErrorKind;
-    fn try_from(chart: Napchart) -> Result<raw::Napchart> {
-        Ok(raw::Napchart {
-            chartData: raw::ChartData {
-                lanes: chart.lanes.len(),
-                shape: chart.shape.to_string(),
-                lanesConfig: chart
-                    .lanes
-                    .iter()
-                    .enumerate()
-                    .map(|(i, l)| (i, raw::LaneConfig { locked: l.locked }))
-                    .collect(),
-                elements: chart
-                    .lanes
-                    .into_iter()
-                    .enumerate()
-                    .flat_map(|(i, l)| l.elements.into_iter().zip(repeat(i)))
-                    .map(|(l, i)| raw::ChartElement {
-                        end: l.end,
-                        lane: i,
-                        text: l.data.text.unwrap_or_default(),
-                        color: l.data.color,
-                        start: l.start,
-                    })
-                    .collect(),
-                colorTags: chart
-                    .color_tags
-                    .into_iter()
-                    .map(|(color, tag)| raw::ColorTag { tag, color })
-                    .collect(),
-            },
-            chartid: chart.chartid.unwrap_or_default(),
-            title: chart.title,
-            description: chart.description,
+    fn try_from(chart: Napchart) -> Result<raw::ChartSchema> {
+        Ok(raw::ChartSchema {
+            lanes: chart.lanes.len(),
+            shape: chart.shape.to_string(),
+            lanesConfig: chart
+                .lanes
+                .iter()
+                .enumerate()
+                .map(|(i, l)| (i, raw::LaneConfig { locked: l.locked }))
+                .collect(),
+            elements: chart
+                .lanes
+                .into_iter()
+                .enumerate()
+                .flat_map(|(i, l)| l.elements.into_iter().zip(repeat(i)))
+                .map(|(l, i)| raw::ChartElement {
+                    end: l.end,
+                    lane: i,
+                    text: l.data.text.unwrap_or_default(),
+                    color: l.data.color.to_string(),
+                    start: l.start,
+                })
+                .collect(),
+            colorTags: chart
+                .color_tags
+                .into_iter()
+                .map(|(color, tag)| raw::ColorTag {
+                    tag,
+                    color: color.to_string(),
+                })
+                .collect(),
         })
     }
 }
-impl TryFrom<raw::Napchart> for Napchart {
+// TODO: Replace TryFrom<raw::Napchart> for Napchart
+impl TryFrom<raw::ChartDocument> for RemoteNapchart {
     type Error = ErrorKind;
-    fn try_from(raw: raw::Napchart) -> Result<Napchart> {
-        Ok(Napchart {
-            chartid: Some(raw.chartid),
-            title: raw.title,
-            description: raw.description,
-            shape: match raw.chartData.shape.as_str() {
-                "circle" => ChartShape::Circle,
-                "wide" => ChartShape::Wide,
-                "line" => ChartShape::Line,
-                _ => return Err(ErrorKind::InvalidChartShape(raw.chartData.shape.clone())),
+    fn try_from(raw: raw::ChartDocument) -> Result<RemoteNapchart> {
+        Ok(RemoteNapchart {
+            chartid: raw.chartid, //TODO: parse chartid
+            title: raw
+                .title
+                .and_then(|t| if t.is_empty() { None } else { Some(t) }),
+            description: raw
+                .description
+                .and_then(|t| if t.is_empty() { None } else { Some(t) }),
+            username: if &raw.username == "anonymous" {
+                None
+            } else {
+                Some(raw.username)
             },
-            lanes: {
-                // let lane_count =
-                //     usize::try_from(raw.chartData.lanes).or(Err(ErrorKind::NotUsizeable))?;
-                let mut vec = Vec::with_capacity(raw.chartData.lanes);
-                for i in 0..raw.chartData.lanes {
-                    vec.push(ChartLane {
-                        locked: raw
-                            .chartData
-                            .lanesConfig
-                            .get(&i)
-                            .map(|c| c.locked)
-                            .unwrap_or(false),
-                        elements: vec![],
-                    });
-                }
-                for e in raw.chartData.elements.iter() {
-                    let lane = &mut vec
-                        .get_mut(e.lane)
-                        .map(|l| &mut l.elements)
-                        .ok_or(ErrorKind::InvalidLane(e.lane, raw.chartData.lanes))?;
-                    lane.push(ChartElement {
-                        start: e.start,
-                        end: e.end,
-                        data: ElementData {
-                            text: if e.text.is_empty() {
-                                None
-                            } else {
-                                Some(e.text.clone())
+            last_updated: raw.lastUpdated.parse()?,
+            is_snapshot: raw.isSnapshot,
+            public_link: None,
+            chart: Napchart {
+                shape: match raw.chartData.shape.as_str() {
+                    "circle" => ChartShape::Circle,
+                    "wide" => ChartShape::Wide,
+                    "line" => ChartShape::Line,
+                    _ => return Err(ErrorKind::InvalidChartShape(raw.chartData.shape.clone())),
+                },
+                lanes: {
+                    let mut vec = Vec::with_capacity(raw.chartData.lanes);
+                    for i in 0..raw.chartData.lanes {
+                        vec.push(ChartLane {
+                            locked: raw
+                                .chartData
+                                .lanesConfig
+                                .get(&i)
+                                .map(|c| c.locked)
+                                .unwrap_or(false),
+                            elements: vec![],
+                        });
+                    }
+                    for e in raw.chartData.elements.iter() {
+                        let lane = &mut vec
+                            .get_mut(e.lane)
+                            .map(|l| &mut l.elements)
+                            .ok_or(ErrorKind::InvalidLane(e.lane, raw.chartData.lanes))?;
+                        lane.push(ChartElement {
+                            start: e.start,
+                            end: e.end,
+                            data: ElementData {
+                                text: if e.text.is_empty() {
+                                    None
+                                } else {
+                                    Some(e.text.clone())
+                                },
+                                color: e.color.parse()?,
                             },
-                            color: e.color.clone(),
-                        },
-                    });
-                }
-                vec
-            },
-            color_tags: {
-                let mut map = HashMap::new();
-                for colortag in raw.chartData.colorTags.iter() {
-                    map.insert(colortag.color.clone(), colortag.tag.clone());
-                }
-                map
+                        });
+                    }
+                    vec
+                },
+                color_tags: {
+                    raw.chartData
+                        .colorTags
+                        .into_iter()
+                        .filter_map(|tag| {
+                            tag.color.parse().ok().map(|color| (color, tag.tag.clone()))
+                        })
+                        .collect()
+                },
             },
         })
     }
@@ -412,24 +516,112 @@ impl TryFrom<raw::Napchart> for Napchart {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn title_builder() {
-        let nc = Napchart {
-            title: Some(String::from("Test Title")),
-            ..Default::default()
-        };
-        let nc2 = Napchart::default().title("Test Title");
-        assert_eq!(nc, nc2);
+    fn apply_permutations<E, R, F: Fn(&Vec<E>) -> R>(mut elems: Vec<E>, f: F) -> Vec<R> {
+        fn heap_permutation<E, R, F: Fn(&Vec<E>) -> R>(
+            elems: &mut Vec<E>,
+            size: usize,
+            f: &F,
+            res: &mut Vec<R>,
+        ) {
+            if size == 1 {
+                res.push(f(elems));
+            } else {
+                for i in 0..size {
+                    heap_permutation(elems, size - 1, f, res);
+                    if size % 2 == 1 {
+                        elems.swap(0, size - 1);
+                    } else {
+                        elems.swap(i, size - 1);
+                    }
+                }
+            }
+        }
+        let mut res = Vec::new();
+        let size = elems.len();
+        heap_permutation(&mut elems, size, &f, &mut res);
+        res
     }
     #[test]
-    fn description_builder() {
-        let nc = Napchart {
-            description: Some(String::from("Test Description")),
-            ..Default::default()
-        };
-        let nc2 = Napchart::default().description("Test Description");
-        assert_eq!(nc, nc2);
+    fn lane_semantic_eq() {
+        let elems = vec![
+            (0, 8 * 60),
+            (8 * 60, 16 * 60),
+            (16 * 60, 19 * 60),
+            (21 * 60, (24 * 60) - 1),
+        ];
+        let lanes = apply_permutations(elems, |v| {
+            let mut lane1 = ChartLane {
+                locked: false,
+                elements: Vec::with_capacity(4),
+            };
+            for e in v.iter() {
+                lane1.add_element(e.0, e.1).unwrap();
+            }
+            lane1
+        });
+        for lanei in lanes.iter() {
+            for lanej in lanes.iter() {
+                assert!(lanei.semantic_eq(lanej));
+            }
+        }
     }
+    #[test]
+    fn lane_semantic_neq() {
+        let elems = vec![
+            (0, 8 * 60),
+            (8 * 60, 16 * 60),
+            (16 * 60, 19 * 60),
+            (21 * 60, (24 * 60) - 1),
+        ];
+        let mut lanes = Vec::new();
+        for i in 1..4 {
+            let mut lane = ChartLane {
+                locked: false,
+                elements: Vec::new(),
+            };
+            for j in elems.iter().take(i) {
+                lane.add_element(j.0, j.1).unwrap();
+            }
+            lanes.push(lane);
+        }
+        for i in 1..4 {
+            let mut lane = ChartLane {
+                locked: false,
+                elements: Vec::new(),
+            };
+            for j in 0..i {
+                lane.add_element(elems[3 - j].0, elems[3 - j].1).unwrap();
+            }
+            lanes.push(lane);
+        }
+        for lanei in lanes.iter() {
+            for lanej in lanes.iter() {
+                if lanei != lanej {
+                    println!("{:?} != {:?}", lanei, lanej);
+                    assert!(!lanei.semantic_eq(lanej));
+                }
+            }
+        }
+    }
+    //TODO: Redo lib.rs tests
+    // #[test]
+    // fn title_builder() {
+    //     let nc = Napchart {
+    //         title: Some(String::from("Test Title")),
+    //         ..Default::default()
+    //     };
+    //     let nc2 = Napchart::default().title("Test Title");
+    //     assert_eq!(nc, nc2);
+    // }
+    // #[test]
+    // fn description_builder() {
+    //     let nc = Napchart {
+    //         description: Some(String::from("Test Description")),
+    //         ..Default::default()
+    //     };
+    //     let nc2 = Napchart::default().description("Test Description");
+    //     assert_eq!(nc, nc2);
+    // }
     #[test]
     fn shape_builder() {
         let nc = Napchart {
