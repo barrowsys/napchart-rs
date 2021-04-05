@@ -164,6 +164,7 @@ impl AsyncClient {
 }
 
 #[cfg(test)]
+#[cfg(feature = "network-tests")]
 mod tests {
     use super::*;
     use tokio::task::spawn_blocking;
