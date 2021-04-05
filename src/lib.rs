@@ -15,30 +15,30 @@
 // #![feature(external_doc)]
 // #![doc(include = "../README.md")]
 //! # napchart-rs
-//! 
+//!
 //! [![GitHub last commit](https://img.shields.io/github/last-commit/barrowsys/napchart-rs)](https://github.com/barrowsys/napchart-rs)
 //! [![Crates.io](https://img.shields.io/crates/v/napchart)](https://crates.io/crates/napchart/)
 //! [![Docs.rs](https://docs.rs/napchart/badge.svg)](https://docs.rs/napchart)
-//! 
+//!
 //! A strongly-typed rust interface to the <https://napchart.com> API.
-//! 
+//!
 //! The public napchart api is pretty barebones right now, but this will let you use it!
-//! 
+//!
 //! ## Usage
-//! 
+//!
 //! Add to your Cargo.toml:
 //! ```text
 //! [dependencies]
 //! napchart = "0.1.5"
 //! ```
-//! 
+//!
 //! ## Examples
-//! 
+//!
 //! ### Creating a new napchart from scratch
 //! Example: <https://napchart.com/snapshot/O6kunUfuL>
 //! ```
 //! use napchart::prelude::*;
-//! 
+//!
 //! let mut chart = Napchart::default()
 //!     .shape(ChartShape::Circle)
 //!     .lanes(1);
@@ -54,12 +54,12 @@
 //!     .color(ChartColor::Green)
 //!     .text("Cool green time");
 //! ```
-//! 
+//!
 //! ### Downloading a napchart
 //! Example Chart: <https://napchart.com/3tbkt>
 //! ```
 //! use napchart::api::BlockingClient;
-//! 
+//!
 //! let client = BlockingClient::default();
 //! let rchart = client.get_chart("3tbkt").unwrap();
 //! assert_eq!(rchart.chartid, String::from("3tbkt"));
@@ -67,13 +67,13 @@
 //! assert_eq!(rchart.chart.shape, napchart::ChartShape::Circle);
 //! assert_eq!(rchart.chart.lanes_len(), 1);
 //! ```
-//! 
+//!
 //! ### Uploading a napchart as a snapshot
 //! Example Output: <https://napchart.com/snapshot/TpCfggr4i>
 //! ```
 //! use napchart::prelude::*;
 //! use napchart::api::BlockingClient;
-//! 
+//!
 //! let client = BlockingClient::default();
 //! let mut chart = Napchart::default();
 //! let lane = chart.add_lane();
