@@ -70,7 +70,7 @@
 //!
 //! ### Uploading a napchart as a snapshot
 //! Example Output: <https://napchart.com/snapshot/TpCfggr4i>
-//! ```
+//! ```no_run
 //! use napchart::prelude::*;
 //! use napchart::api::BlockingClient;
 //!
