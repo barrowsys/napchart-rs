@@ -89,6 +89,7 @@
 //! ```
 
 use chrono::prelude::*;
+use noneifempty::NoneIfEmpty;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::iter::repeat;
@@ -120,45 +121,6 @@ pub mod prelude {
     pub use super::ElementData;
     pub use super::Napchart;
     pub use super::RemoteNapchart;
-}
-
-// Trait for converting an empty string to None
-trait NoneIfEmpty
-where
-    Self: Sized,
-{
-    type Output;
-    fn none_if_empty(self) -> Option<Self::Output>;
-}
-// Automatically implement NoneIfEmpty for Option<T: NoneIfEmpty>
-// Option<&str> -> Option<&str>, where a Some("") -> None
-impl<T: NoneIfEmpty> NoneIfEmpty for Option<T> {
-    type Output = <T as NoneIfEmpty>::Output;
-    fn none_if_empty(self) -> Option<Self::Output> {
-        (self?).none_if_empty()
-    }
-}
-// Converts a &str to an Option<&str>,, None if empty
-impl<'s> NoneIfEmpty for &'s str {
-    type Output = &'s str;
-    fn none_if_empty(self) -> Option<&'s str> {
-        if self.is_empty() {
-            None
-        } else {
-            Some(self)
-        }
-    }
-}
-// Converts a String to an Option<String>,, None if empty
-impl NoneIfEmpty for String {
-    type Output = String;
-    fn none_if_empty(self) -> Option<String> {
-        if self.is_empty() {
-            None
-        } else {
-            Some(self)
-        }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
