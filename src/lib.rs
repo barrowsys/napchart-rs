@@ -122,6 +122,7 @@ pub mod prelude {
     pub use super::RemoteNapchart;
 }
 
+// Trait for converting an empty string to None
 trait NoneIfEmpty
 where
     Self: Sized,
@@ -129,6 +130,15 @@ where
     type Output;
     fn none_if_empty(self) -> Option<Self::Output>;
 }
+// Automatically implement NoneIfEmpty for Option<T: NoneIfEmpty>
+// Option<&str> -> Option<&str>, where a Some("") -> None
+impl<T: NoneIfEmpty> NoneIfEmpty for Option<T> {
+    type Output = <T as NoneIfEmpty>::Output;
+    fn none_if_empty(self) -> Option<Self::Output> {
+        (self?).none_if_empty()
+    }
+}
+// Converts a &str to an Option<&str>,, None if empty
 impl<'s> NoneIfEmpty for &'s str {
     type Output = &'s str;
     fn none_if_empty(self) -> Option<&'s str> {
@@ -139,16 +149,7 @@ impl<'s> NoneIfEmpty for &'s str {
         }
     }
 }
-impl<'s> NoneIfEmpty for Option<&'s str> {
-    type Output = &'s str;
-    fn none_if_empty(self) -> Option<&'s str> {
-        if self?.is_empty() {
-            None
-        } else {
-            Some(self?)
-        }
-    }
-}
+// Converts a String to an Option<String>,, None if empty
 impl NoneIfEmpty for String {
     type Output = String;
     fn none_if_empty(self) -> Option<String> {
@@ -156,16 +157,6 @@ impl NoneIfEmpty for String {
             None
         } else {
             Some(self)
-        }
-    }
-}
-impl NoneIfEmpty for Option<String> {
-    type Output = String;
-    fn none_if_empty(self) -> Option<String> {
-        if self.as_ref()?.is_empty() {
-            None
-        } else {
-            Some(self?)
         }
     }
 }
