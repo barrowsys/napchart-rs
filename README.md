@@ -13,7 +13,7 @@ The public napchart api is pretty barebones right now, but this will let you use
 Add to your Cargo.toml:
 ```text
 [dependencies]
-napchart = "0.1.5"
+napchart = "0.2"
 ```
 
 ## Examples
