@@ -122,6 +122,54 @@ pub mod prelude {
     pub use super::RemoteNapchart;
 }
 
+trait NoneIfEmpty
+where
+    Self: Sized,
+{
+    type Output;
+    fn none_if_empty(self) -> Option<Self::Output>;
+}
+impl<'s> NoneIfEmpty for &'s str {
+    type Output = &'s str;
+    fn none_if_empty(self) -> Option<&'s str> {
+        if self.is_empty() {
+            None
+        } else {
+            Some(self)
+        }
+    }
+}
+impl<'s> NoneIfEmpty for Option<&'s str> {
+    type Output = &'s str;
+    fn none_if_empty(self) -> Option<&'s str> {
+        if self?.is_empty() {
+            None
+        } else {
+            Some(self?)
+        }
+    }
+}
+impl NoneIfEmpty for String {
+    type Output = String;
+    fn none_if_empty(self) -> Option<String> {
+        if self.is_empty() {
+            None
+        } else {
+            Some(self)
+        }
+    }
+}
+impl NoneIfEmpty for Option<String> {
+    type Output = String;
+    fn none_if_empty(self) -> Option<String> {
+        if self.as_ref()?.is_empty() {
+            None
+        } else {
+            Some(self?)
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[allow(missing_docs)]
 /// The shape of a napchart
@@ -598,17 +646,8 @@ impl TryFrom<raw::ChartCreationReturn> for RemoteNapchart {
     fn try_from(raw: raw::ChartCreationReturn) -> Result<RemoteNapchart> {
         Ok(RemoteNapchart {
             chartid: raw.chartDocument.chartid,
-            title: raw
-                .chartDocument
-                .title
-                .and_then(|t| if t.is_empty() { None } else { Some(t) }),
-            description: raw.chartDocument.description.and_then(|d| {
-                if d.is_empty() {
-                    None
-                } else {
-                    Some(d)
-                }
-            }),
+            title: raw.chartDocument.title.none_if_empty(),
+            description: raw.chartDocument.description.none_if_empty(),
             username: if &raw.chartDocument.username == "anonymous" {
                 None
             } else {
@@ -616,11 +655,7 @@ impl TryFrom<raw::ChartCreationReturn> for RemoteNapchart {
             },
             last_updated: raw.chartDocument.lastUpdated.parse()?,
             is_snapshot: raw.chartDocument.isSnapshot,
-            public_link: if raw.publicLink.is_empty() {
-                None
-            } else {
-                Some(raw.publicLink)
-            },
+            public_link: raw.publicLink.none_if_empty(),
             chart: Napchart {
                 shape: raw.chartDocument.chartData.shape.parse()?,
                 lanes: {
@@ -640,28 +675,30 @@ impl TryFrom<raw::ChartCreationReturn> for RemoteNapchart {
                         });
                     }
                     for e in raw.chartDocument.chartData.elements.into_iter() {
-                        let lane = &mut vec.get_mut(e.lane).map(|l| &mut l.elements).ok_or(
+                        // Get the element's lane out of the vec as an Option<Lane>
+                        // Map the Option<Lane> to a Option<Vec<Element>>
+                        // Map the Option<Lane> to a Result<Lane, ErrorKind::InvalidLane>
+                        let lane = vec.get_mut(e.lane).map(|l| &mut l.elements).ok_or(
                             ErrorKind::InvalidLane(e.lane, raw.chartDocument.chartData.lanes),
                         )?;
                         lane.push(ChartElement {
                             start: e.start,
                             end: e.end,
                             data: ElementData {
-                                text: e.text.and_then(
-                                    |d| {
-                                        if d.is_empty() {
-                                            None
-                                        } else {
-                                            Some(d)
-                                        }
-                                    },
-                                ),
+                                text: e.text.none_if_empty(),
                                 color: e.color.parse()?,
                             },
                         });
                     }
                     vec
                 },
+                // Iter<ColorTag>                           -> map to
+                // Iter<color string>                       -> parse to
+                // Iter<Result<ChartColor>>                 -> ok to
+                // Iter<Option<ChartColor>>                 -> map to
+                // Iter<Option<(ChartColor, tag string)>>   -> filter to
+                // Iter<(ChartColor, tag string)>           -> collect to
+                // HashMap<ChartColor, String>
                 color_tags: raw
                     .chartDocument
                     .chartData
