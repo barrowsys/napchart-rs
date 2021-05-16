@@ -48,6 +48,10 @@ pub enum ErrorKind {
     IoError(std::io::Error),
     /// An error occurred parsing a time
     ChronoParseError(chrono::ParseError),
+    /// An error occured parsing an RGB value
+    RgbParseError(colorsys::ParseError),
+    /// Attempted to set the tag on an unset custom color
+    CustomColorUnset(usize),
 }
 
 pub(crate) type Result<T> = std::result::Result<T, ErrorKind>;
@@ -94,6 +98,7 @@ impl_from!(reqwest::Error, ErrorKind::ReqwestError);
 impl_from!(serde_json::Error, ErrorKind::SerdeError);
 impl_from!(std::io::Error, ErrorKind::IoError);
 impl_from!(chrono::ParseError, ErrorKind::ChronoParseError);
+impl_from!(colorsys::ParseError, ErrorKind::RgbParseError);
 
 #[doc(hidden)]
 #[macro_export]

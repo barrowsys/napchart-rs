@@ -11,7 +11,7 @@
  * -Ezra Barrow
  * --------------------
  */
-#![deny(missing_docs)]
+#![allow(missing_docs)]
 // #![feature(external_doc)]
 // #![doc(include = "../README.md")]
 //! # napchart-rs
@@ -89,6 +89,7 @@
 //! ```
 
 use chrono::prelude::*;
+use colorsys::Rgb;
 use noneifempty::NoneIfEmpty;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -103,6 +104,7 @@ mod raw;
 mod error;
 pub use error::ErrorKind;
 use error::Result;
+type StdResult<T, E> = std::result::Result<T, E>;
 
 /// Contains aliases to the useful imports.
 /// ```
@@ -157,6 +159,30 @@ impl FromStr for ChartShape {
     }
 }
 
+// #[allow(missing_docs)]
+// #[derive(Clone, Debug, PartialEq)]
+// /// The tag associated with a color.
+// /// Also holds the rgb value associated with a custom color.
+// pub enum ColorTag {
+//     Builtin(String),
+//     Custom(String, Rgb),
+// }
+// impl ColorTag {
+//     fn from_raw(s: String, c: Option<String>) -> Result<Self> {
+//         if let Some(c) = c {
+//             Ok(Self::Custom(s, Rgb::from_hex_str(&c)?))
+//         } else {
+//             Ok(Self::Builtin(s))
+//         }
+//     }
+//     fn unwrap(self) -> (String, Option<Rgb>) {
+//         match self {
+//             Self::Builtin(s) => (s, None),
+//             Self::Custom(s, c) => (s, Some(c)),
+//         }
+//     }
+// }
+
 #[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 /// The colors available for chart elements
@@ -169,6 +195,53 @@ pub enum ChartColor {
     Yellow,
     Purple,
     Pink,
+    Custom0,
+    Custom1,
+    Custom2,
+    Custom3,
+}
+impl ChartColor {
+    pub fn is_custom(&self) -> bool {
+        match self {
+            ChartColor::Red
+            | ChartColor::Blue
+            | ChartColor::Brown
+            | ChartColor::Green
+            | ChartColor::Gray
+            | ChartColor::Yellow
+            | ChartColor::Purple
+            | ChartColor::Pink => false,
+            ChartColor::Custom0
+            | ChartColor::Custom1
+            | ChartColor::Custom2
+            | ChartColor::Custom3 => true,
+        }
+    }
+    pub fn is_builtin(&self) -> bool {
+        match self {
+            ChartColor::Red
+            | ChartColor::Blue
+            | ChartColor::Brown
+            | ChartColor::Green
+            | ChartColor::Gray
+            | ChartColor::Yellow
+            | ChartColor::Purple
+            | ChartColor::Pink => true,
+            ChartColor::Custom0
+            | ChartColor::Custom1
+            | ChartColor::Custom2
+            | ChartColor::Custom3 => false,
+        }
+    }
+    fn custom_index(&self) -> Option<usize> {
+        match self {
+            ChartColor::Custom0 => Some(0),
+            ChartColor::Custom1 => Some(1),
+            ChartColor::Custom2 => Some(2),
+            ChartColor::Custom3 => Some(3),
+            _ => None,
+        }
+    }
 }
 impl Default for ChartColor {
     fn default() -> Self {
@@ -186,6 +259,10 @@ impl ToString for ChartColor {
             ChartColor::Yellow => String::from("yellow"),
             ChartColor::Purple => String::from("purple"),
             ChartColor::Pink => String::from("pink"),
+            ChartColor::Custom0 => String::from("custom_0"),
+            ChartColor::Custom1 => String::from("custom_1"),
+            ChartColor::Custom2 => String::from("custom_2"),
+            ChartColor::Custom3 => String::from("custom_3"),
         }
     }
 }
@@ -201,12 +278,16 @@ impl FromStr for ChartColor {
             "yellow" => ChartColor::Yellow,
             "purple" => ChartColor::Purple,
             "pink" => ChartColor::Pink,
+            "custom_0" => ChartColor::Custom0,
+            "custom_1" => ChartColor::Custom1,
+            "custom_2" => ChartColor::Custom2,
+            "custom_3" => ChartColor::Custom3,
             _ => return Err(ErrorKind::InvalidChartColor(s.to_string())),
         })
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 /// A napchart, as seen on <https://napchart.com/>
 pub struct Napchart {
     /// The default shape of the napchart on napchart.com
@@ -216,6 +297,17 @@ pub struct Napchart {
     /// These are displayed in the inner area of a napchart,
     /// along with the accumulated amount of time each color takes up.
     pub color_tags: HashMap<ChartColor, String>,
+    pub custom_colors: [Option<Rgb>; 4],
+}
+impl Default for Napchart {
+    fn default() -> Self {
+        Self {
+            shape: Default::default(),
+            lanes: Default::default(),
+            color_tags: Default::default(),
+            custom_colors: [None, None, None, None],
+        }
+    }
 }
 impl Napchart {
     /// Append a new blank lane to the chart and return a mutable reference to it.
@@ -295,6 +387,33 @@ impl Napchart {
     /// ```
     pub fn upload(&self) -> api::UploadBuilder {
         api::UploadBuilder::new(self)
+    }
+    // TODO: Add Documentation
+    pub fn set_color_tag<T: ToString>(
+        &mut self,
+        color: ChartColor,
+        tag: T,
+    ) -> Result<Option<String>> {
+        if let Some(index) = color.custom_index() {
+            if self.custom_colors[index].is_none() {
+                return Err(ErrorKind::CustomColorUnset(index));
+            }
+        }
+        Ok(self.color_tags.insert(color, tag.to_string()))
+    }
+    // TODO: Add Documentation
+    pub fn clear_custom_color(&mut self, id: ChartColor) -> Option<Rgb> {
+        assert!(id.is_custom());
+        let i = id.custom_index().unwrap();
+        self.custom_colors[i].take()
+    }
+    // TODO: Add Documentation
+    pub fn set_custom_color(&mut self, id: ChartColor, color: Rgb) -> Option<Rgb> {
+        assert!(id.is_custom());
+        let i = id.custom_index().unwrap();
+        let old = self.custom_colors[i].take();
+        self.custom_colors[i] = Some(color);
+        old
     }
 }
 /// Builder functions to create new napcharts.
@@ -551,6 +670,7 @@ pub struct ElementData {
 impl TryFrom<Napchart> for raw::ChartSchema {
     type Error = ErrorKind;
     fn try_from(chart: Napchart) -> Result<raw::ChartSchema> {
+        let custom_colors = chart.custom_colors;
         Ok(raw::ChartSchema {
             lanes: chart.lanes.len(),
             shape: chart.shape.to_string(),
@@ -585,9 +705,17 @@ impl TryFrom<Napchart> for raw::ChartSchema {
             colorTags: chart
                 .color_tags
                 .into_iter()
-                .map(|(color, tag)| raw::ColorTag {
+                .map(|(color, tag)| {
+                    let custom_color = color
+                        .custom_index()
+                        .map(|i| custom_colors[i].as_ref().map(Rgb::to_css_string))
+                        .flatten();
+                    (color, tag, custom_color)
+                })
+                .map(|(color, tag, custom_color)| raw::ColorTag {
                     tag,
                     color: color.to_string(),
+                    colorValue: custom_color,
                 })
                 .collect(),
         })
@@ -645,6 +773,36 @@ impl TryFrom<raw::ChartCreationReturn> for RemoteNapchart {
                     }
                     vec
                 },
+                custom_colors: {
+                    let mut r = [None, None, None, None];
+                    raw.chartDocument
+                        .chartData
+                        .colorTags
+                        .iter()
+                        .filter_map(|tag| {
+                            tag.color
+                                .parse::<ChartColor>()
+                                .ok()
+                                .map(|color| (color, tag.colorValue.as_deref()))
+                        })
+                        .map(|(color, color_str)| {
+                            (
+                                color,
+                                color_str
+                                    .map(Rgb::from_hex_str)
+                                    .map(StdResult::ok)
+                                    .flatten(),
+                            )
+                        })
+                        .for_each(|(color, color_value)| match color {
+                            ChartColor::Custom0 => r[0] = color_value,
+                            ChartColor::Custom1 => r[1] = color_value,
+                            ChartColor::Custom2 => r[2] = color_value,
+                            ChartColor::Custom3 => r[3] = color_value,
+                            _ => {}
+                        });
+                    r
+                },
                 // Iter<ColorTag>                           -> map to
                 // Iter<color string>                       -> parse to
                 // Iter<Result<ChartColor>>                 -> ok to
@@ -657,8 +815,8 @@ impl TryFrom<raw::ChartCreationReturn> for RemoteNapchart {
                     .chartData
                     .colorTags
                     .into_iter()
-                    .filter_map(|tag| tag.color.parse().ok().map(|color| (color, tag.tag.clone())))
-                    .collect(),
+                    .map(|tag| Ok((tag.color.parse()?, tag.tag)))
+                    .collect::<Result<HashMap<ChartColor, String>>>()?,
             },
         })
     }

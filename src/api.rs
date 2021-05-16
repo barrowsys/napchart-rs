@@ -164,7 +164,6 @@ impl AsyncClient {
 }
 
 #[cfg(test)]
-#[cfg(feature = "network-tests")]
 mod tests {
     use super::*;
     use tokio::task::spawn_blocking;
@@ -191,6 +190,20 @@ mod tests {
         let lane = chart.lanes.get(0).unwrap();
         assert!(!lane.locked);
         assert_eq!(lane.elements.len(), 2);
+    }
+    #[test]
+    fn get_custom_colors() {
+        let client = BlockingClient::default();
+        let rchart = client.get_chart("oo81DYL84").unwrap();
+        let chart = rchart.chart;
+        assert_eq!(chart.color_tags.len(), 12);
+        let custom_0 = chart.color_tags.get(&crate::ChartColor::Custom0).unwrap();
+        println!("{:#?}", chart);
+        assert_eq!(custom_0, "custom_0 tag");
+        assert_eq!(
+            chart.custom_colors[0],
+            Some(colorsys::Rgb::from((0x50, 0x81, 0x4a)))
+        );
     }
     #[test]
     fn create_snapshot() {

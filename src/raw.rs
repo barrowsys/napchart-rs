@@ -65,6 +65,9 @@ pub(crate) struct ChartElement {
 pub(crate) struct ColorTag {
     pub(crate) tag: String,
     pub(crate) color: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub(crate) colorValue: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
