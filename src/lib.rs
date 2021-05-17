@@ -669,8 +669,8 @@ impl Napchart {
 
 /// A napchart downloaded from <https://napchart.com>.
 /// Includes extra metadata around the internal Napchart, such as the chart's ID, title, author, update time, etc.
-#[derive(Debug)]
-// #[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RemoteNapchart {
     /// The chart's ID code. Chartids are unique.
     /// Should be in one of the following formats:
@@ -680,9 +680,9 @@ pub struct RemoteNapchart {
     /// * 9 chars user chart (`napchart.com/:user/xxxxxxxxx`)
     /// * 9 chars user chart with title (`napchart.com/:user/Some-title-here-xxxxxxxxx`)
     pub chartid: String,
-    /// The title of the napchart, or None if empty
+    /// The title of the napchart, or None if unset
     pub title: Option<String>,
-    /// The description of the napchart, or None if empty
+    /// The description of the napchart, or None if unset
     pub description: Option<String>,
     /// The user that saved this napchart, or None if anonymous
     pub username: Option<String>,
@@ -692,10 +692,11 @@ pub struct RemoteNapchart {
     pub is_snapshot: bool,
     /// True if this napchart is private
     pub is_private: bool,
+    #[serde(skip)]
     /// The public link to this napchart.
     /// (Note: We should be able to generate this from the other metadata)
-    pub public_link: Option<String>,
-    // #[serde(rename = "chartData")]
+    public_link: Option<String>,
+    #[serde(skip)]
     /// The chart itself
     pub chart: Napchart,
 }
@@ -886,8 +887,7 @@ pub struct ElementData {
 impl TryFrom<Napchart> for raw::ChartSchema {
     type Error = ErrorKind;
     fn try_from(chart: Napchart) -> Result<raw::ChartSchema> {
-        use raw::ColorTag;
-        let custom_colors = chart.custom_colors;
+        let cc = chart.custom_colors;
         Ok(raw::ChartSchema {
             lanes: chart.lanes.len(),
             shape: chart.shape,
@@ -908,11 +908,10 @@ impl TryFrom<Napchart> for raw::ChartSchema {
             color_tags: chart
                 .color_tags
                 .into_iter()
-                .map(|(color, tag)| {
-                    let rgb = color.custom_index().and_then(|i| custom_colors[i].as_ref());
-                    let rgb = rgb.map(Rgb::to_css_string);
-                    ColorTag { tag, color, rgb }
-                })
+                .map(|(color, tag)| (color.custom_index(), color, tag))
+                .map(|(rgb, color, tag)| (rgb.and_then(|i| cc[i].as_ref()), color, tag))
+                .map(|(rgb, color, tag)| (rgb.map(Rgb::to_css_string), color, tag))
+                .map(|(rgb, color, tag)| raw::ColorTag { tag, color, rgb })
                 .collect(),
         })
     }
@@ -922,67 +921,48 @@ impl TryFrom<raw::ChartCreationReturn> for RemoteNapchart {
     type Error = ErrorKind;
     fn try_from(raw: raw::ChartCreationReturn) -> Result<RemoteNapchart> {
         use raw::ColorTag;
-        let c = raw.chart_document;
-        let cd = c.chart_data;
-        Ok(RemoteNapchart {
-            chartid: c.chartid,
-            title: c.title.none_if_empty(),
-            description: c.description.none_if_empty(),
-            username: {
-                if &c.username != "anonymous" {
-                    Some(c.username)
-                } else {
-                    None
-                }
-            },
-            last_updated: c.last_updated,
-            is_snapshot: c.is_snapshot,
-            is_private: c.is_private,
+        let cd = raw.chart_document.chart_data;
+        let lc = cd.lanes_config;
+        let meta = raw.chart_document.metadata;
+        let meta = RemoteNapchart {
             public_link: raw.public_link.none_if_empty(),
-            chart: Napchart {
-                shape: cd.shape,
-                lanes: {
-                    let mut vec = Vec::with_capacity(cd.lanes);
-                    for i in 0..cd.lanes {
-                        vec.push(ChartLane {
-                            locked: cd.lanes_config.get(&i).map(|c| c.locked).unwrap_or(false),
-                            elements: vec![],
-                        });
-                    }
-                    for mut e in cd.elements.into_iter() {
-                        // Get the element's lane out of the vec as an Option<Lane>
-                        // Map the Option<Lane> to a Option<Vec<Element>>
-                        // Map the Option<Lane> to a Result<Lane, ErrorKind::InvalidLane>
-                        let lane = vec
-                            .get_mut(e.lane)
-                            .map(|l| &mut l.elements)
-                            .ok_or(ErrorKind::InvalidLane(e.lane, cd.lanes))?;
-                        e.element.data.text = e.element.data.text.none_if_empty();
-                        lane.push(e.element);
-                    }
-                    vec
-                },
-                custom_colors: {
-                    println!("{:#?}", cd.color_tags);
-                    cd.color_tags
-                        .iter()
-                        .map(|ColorTag { color, rgb, .. }| (color.custom_index(), rgb.as_deref()))
-                        .filter_map(|(color, rgb)| Option::zip(color, rgb))
-                        .try_fold::<_, _, Result<_>>(
-                            [None, None, None, None],
-                            |mut r, (color, rgb)| {
-                                r[color] = Some(Rgb::from_hex_str(rgb)?);
-                                Ok(r)
-                            },
-                        )?
-                },
-                color_tags: {
-                    cd.color_tags
-                        .into_iter()
-                        .map(|tag| (tag.color, tag.tag))
-                        .collect()
-                },
+            username: meta.username.filter(|u| u != "anonymous"),
+            ..meta
+        };
+        let chart = Napchart {
+            shape: cd.shape,
+            custom_colors: {
+                let r = [None, None, None, None];
+                cd.color_tags
+                    .iter()
+                    .map(|ColorTag { color, rgb, .. }| (color.custom_index(), rgb.as_deref()))
+                    .filter_map(|(color, rgb)| Option::zip(color, rgb))
+                    .try_fold::<[_; 4], _, Result<_>>(r, |mut r, (color, rgb)| {
+                        r[color] = Some(Rgb::from_hex_str(rgb)?);
+                        Ok(r)
+                    })?
             },
-        })
+            color_tags: {
+                cd.color_tags
+                    .into_iter()
+                    .map(|tag| (tag.color, tag.tag))
+                    .collect()
+            },
+            lanes: {
+                let mut vec: Vec<_> = (0..cd.lanes)
+                    .map(|i| lc.get(&i).map(|c| c.locked).unwrap_or(false))
+                    .map(|locked| (locked, ChartLane::default()))
+                    .map(|(locked, lane)| ChartLane { locked, ..lane })
+                    .collect();
+                for e in cd.elements.into_iter() {
+                    let lane = vec
+                        .get_mut(e.lane)
+                        .ok_or(ErrorKind::InvalidLane(e.lane, cd.lanes))?;
+                    lane.elements.push(e.element);
+                }
+                vec
+            },
+        };
+        Ok(RemoteNapchart { chart, ..meta })
     }
 }

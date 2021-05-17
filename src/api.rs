@@ -200,16 +200,13 @@ mod tests {
         let client = BlockingClient::default();
         let rchart = client.get_chart("jex3y").unwrap();
         assert_eq!(rchart.chartid, "jex3y");
-        assert_eq!(
-            rchart.title,
-            Some("timemachine simple test chart".to_string())
-        );
-        assert_eq!(rchart.description, None);
+        assert_eq!(rchart.title, Some("simple test chart".to_string()));
+        assert!(rchart.description.is_none());
         assert_eq!(rchart.username, Some("barrow".to_string()));
         assert!(!rchart.is_snapshot);
         assert_eq!(
             rchart.public_link,
-            Some("https://napchart.com/barrow/timemachine-simple-test-chart-jex3y".to_string())
+            Some("https://napchart.com/barrow/simple-test-chart-jex3y".to_string())
         );
         let chart = rchart.chart;
         assert_eq!(chart.shape, crate::ChartShape::Circle);
@@ -254,7 +251,7 @@ mod tests {
             .create_snapshot(lchart.upload().title("napchart simple test chart"))
             .unwrap();
         assert_eq!(rchart.title, Some("napchart simple test chart".to_string()));
-        assert_eq!(rchart.description, None);
+        assert!(rchart.description.is_none());
         assert_eq!(rchart.username, None);
         assert!(rchart.is_snapshot);
         assert_eq!(rchart.chart, lchart);

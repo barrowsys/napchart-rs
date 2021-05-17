@@ -34,13 +34,8 @@ pub(crate) struct ChartCreationReturn {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ChartDocument {
     pub(crate) chart_data: ChartSchema,
-    pub(crate) chartid: String,
-    pub(crate) title: Option<String>,
-    pub(crate) description: Option<String>,
-    pub(crate) username: String,
-    pub(crate) last_updated: chrono::DateTime<chrono::Utc>,
-    pub(crate) is_snapshot: bool,
-    pub(crate) is_private: bool,
+    #[serde(flatten)]
+    pub(crate) metadata: crate::RemoteNapchart,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
