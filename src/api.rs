@@ -178,7 +178,7 @@ mod tests {
         );
         assert_eq!(rchart.description, None);
         assert_eq!(rchart.username, Some("barrow".to_string()));
-        assert_eq!(rchart.is_snapshot, false);
+        assert!(!rchart.is_snapshot);
         assert_eq!(
             rchart.public_link,
             Some("https://napchart.com/barrow/timemachine-simple-test-chart-jex3y".to_string())
