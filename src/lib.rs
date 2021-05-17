@@ -11,7 +11,7 @@
  * -Ezra Barrow
  * --------------------
  */
-#![allow(missing_docs)]
+#![warn(missing_docs)]
 // #![feature(external_doc)]
 // #![doc(include = "../README.md")]
 //! # napchart-rs
@@ -201,6 +201,12 @@ pub enum ChartColor {
     Custom3,
 }
 impl ChartColor {
+    /// True if a color is custom, false if it's one of the builtin colors
+    /// ```
+    /// # use napchart::*;
+    /// assert!(!ChartColor::Blue.is_custom());
+    /// assert!(ChartColor::Custom2.is_custom());
+    /// ```
     pub fn is_custom(&self) -> bool {
         match self {
             ChartColor::Red
@@ -217,6 +223,12 @@ impl ChartColor {
             | ChartColor::Custom3 => true,
         }
     }
+    /// True if a color is builtin, false if it's one of the custom colors
+    /// ```
+    /// # use napchart::*;
+    /// assert!(ChartColor::Blue.is_builtin());
+    /// assert!(!ChartColor::Custom2.is_builtin());
+    /// ```
     pub fn is_builtin(&self) -> bool {
         match self {
             ChartColor::Red
@@ -240,6 +252,16 @@ impl ChartColor {
             ChartColor::Custom2 => Some(2),
             ChartColor::Custom3 => Some(3),
             _ => None,
+        }
+    }
+    fn from_index(i: usize) -> Self {
+        assert!(i <= 3);
+        match i {
+            0 => ChartColor::Custom0,
+            1 => ChartColor::Custom1,
+            2 => ChartColor::Custom2,
+            3 => ChartColor::Custom3,
+            _ => unreachable!(),
         }
     }
 }
@@ -296,8 +318,10 @@ pub struct Napchart {
     /// String tags associated with element colors.
     /// These are displayed in the inner area of a napchart,
     /// along with the accumulated amount of time each color takes up.
-    pub color_tags: HashMap<ChartColor, String>,
-    pub custom_colors: [Option<Rgb>; 4],
+    color_tags: HashMap<ChartColor, String>,
+    /// RGB values for the four custom colors.
+    /// If a custom color is None, it is INVALID/Undefined Behavior to set a chart element to it.
+    custom_colors: [Option<Rgb>; 4],
 }
 impl Default for Napchart {
     fn default() -> Self {
@@ -388,7 +412,53 @@ impl Napchart {
     pub fn upload(&self) -> api::UploadBuilder {
         api::UploadBuilder::new(self)
     }
-    // TODO: Add Documentation
+}
+/// Getters and setters for color tags and custom colors
+impl Napchart {
+    /// Get the text tag for a color.
+    /// ```
+    /// # use napchart::*;
+    /// let mut chart = Napchart::default();
+    /// // Napcharts start out with no color tags
+    /// assert!(chart.get_color_tag(ChartColor::Blue).is_none());
+    ///
+    /// chart.set_color_tag(ChartColor::Blue, "Core Sleep").unwrap();
+    ///
+    /// assert_eq!(chart.get_color_tag(ChartColor::Blue), Some("Core Sleep"));
+    /// ```
+    pub fn get_color_tag(&self, color: ChartColor) -> Option<&str> {
+        self.color_tags.get(&color).map(|s| s.as_str())
+    }
+    /// Get an iterator over ChartColors and their tags.
+    /// ```
+    /// # use napchart::*;
+    /// let mut chart = Napchart::default();
+    ///
+    /// chart.set_color_tag(ChartColor::Blue, "Nap");
+    /// chart.set_color_tag(ChartColor::Gray, "Core");
+    /// let mut iter = chart.color_tags_iter();
+    /// assert!(iter.next().is_some());
+    /// assert!(iter.next().is_some());
+    /// assert!(iter.next().is_none());
+    /// ```
+    pub fn color_tags_iter(&self) -> impl Iterator<Item = (&ChartColor, &String)> + '_ {
+        self.color_tags.iter()
+    }
+    /// Set the text tag for a color, returning the value that was replaced.
+    /// Returns ErrorKind::CustomColorUnset if you attempt to set the tag on an undefined custom
+    /// color.
+    /// ```
+    /// # use napchart::*;
+    /// let mut chart = Napchart::default();
+    ///
+    /// let original: Option<String> = chart.set_color_tag(ChartColor::Blue, "Core Sleep").unwrap();
+    /// assert!(original.is_none()); // Replaced nothing
+    /// assert_eq!(chart.get_color_tag(ChartColor::Blue), Some("Core Sleep"));
+    ///
+    /// let second: Option<String> = chart.set_color_tag(ChartColor::Blue, "Nap").unwrap();
+    /// assert_eq!(second, Some(String::from("Core Sleep")));
+    /// assert_eq!(chart.get_color_tag(ChartColor::Blue), Some("Nap"));
+    /// ```
     pub fn set_color_tag<T: ToString>(
         &mut self,
         color: ChartColor,
@@ -401,19 +471,164 @@ impl Napchart {
         }
         Ok(self.color_tags.insert(color, tag.to_string()))
     }
-    // TODO: Add Documentation
-    pub fn clear_custom_color(&mut self, id: ChartColor) -> Option<Rgb> {
+    /// Set the text tag for a color.
+    /// This function does not check custom colors are valid!!
+    /// It is invalid/undefined behavior to upload a napchart that uses a custom color without
+    /// defining its colorvalue,, "uses" meaning "has a color tag" and/or "is set on an element".
+    /// ```
+    /// # use napchart::*;
+    /// use colorsys::Rgb;
+    /// let mut chart = Napchart::default();
+    ///
+    /// chart.set_custom_color(ChartColor::Custom0, Rgb::from_hex_str("DEDBEF").unwrap());
+    /// let res = chart.set_color_tag(ChartColor::Custom0, "Dead Beef");
+    /// assert!(res.is_ok());
+    ///
+    /// chart.remove_custom_color(ChartColor::Custom0);
+    /// let res = chart.set_color_tag(ChartColor::Custom0, "Dead Beef");
+    /// assert!(res.is_err());
+    /// assert!(matches!(res.unwrap_err(), napchart::ErrorKind::CustomColorUnset(0)));
+    /// ```
+    pub fn set_color_tag_unchecked<T: ToString>(
+        &mut self,
+        color: ChartColor,
+        tag: T,
+    ) -> Option<String> {
+        self.color_tags.insert(color, tag.to_string())
+    }
+    /// Removing the text tag for a color, returning the previous value.
+    /// ```
+    /// # use napchart::*;
+    /// let mut chart = Napchart::default();
+    ///
+    /// let original: Option<String> = chart.set_color_tag(ChartColor::Blue, "Core Sleep").unwrap();
+    /// assert!(original.is_none()); // Replaced nothing
+    /// assert_eq!(chart.get_color_tag(ChartColor::Blue), Some("Core Sleep"));
+    ///
+    /// let second: Option<String> = chart.set_color_tag(ChartColor::Blue, "Nap").unwrap();
+    /// assert_eq!(second, Some(String::from("Core Sleep")));
+    /// assert_eq!(chart.get_color_tag(ChartColor::Blue), Some("Nap"));
+    /// ```
+    pub fn remove_color_tag(&mut self, color: ChartColor) -> Option<String> {
+        self.color_tags.remove(&color)
+    }
+    /// Gets the rgb value of a custom color.
+    /// May only be called with CustomX ChartColors (asserts ChartColor::is_custom).
+    /// ```
+    /// # use napchart::*;
+    /// use colorsys::Rgb;
+    /// let mut chart = Napchart::default();
+    ///
+    /// assert!(chart.get_custom_color(ChartColor::Custom0).is_none());
+    ///
+    /// chart.set_custom_color(ChartColor::Custom0, Rgb::from_hex_str("DEDBEF").unwrap());
+    /// assert_eq!(chart.get_custom_color(ChartColor::Custom0), Some(&Rgb::from((0xDE, 0xDB, 0xEF))));
+    /// ```
+    pub fn get_custom_color(&self, id: ChartColor) -> Option<&Rgb> {
         assert!(id.is_custom());
         let i = id.custom_index().unwrap();
-        self.custom_colors[i].take()
+        self.custom_colors[i].as_ref()
     }
-    // TODO: Add Documentation
+    /// Get an iterator over custom color (as usize indexes) and their RGB values.
+    /// ```
+    /// # use napchart::*;
+    /// use colorsys::Rgb;
+    /// let mut chart = Napchart::default();
+    ///
+    /// chart.set_custom_color(ChartColor::Custom2, Rgb::from((0xDE, 0xDB, 0xEF)));
+    /// chart.set_custom_color(ChartColor::Custom0, Rgb::from((0xB0, 0x0B, 0xE5)));
+    /// let mut iter = chart.custom_colors_iter_index();
+    /// assert_eq!(iter.next(), Some((0, &Rgb::from((0xB0, 0x0B, 0xE5)))));
+    /// assert_eq!(iter.next(), Some((2, &Rgb::from((0xDE, 0xDB, 0xEF)))));
+    /// assert!(iter.next().is_none());
+    /// ```
+    pub fn custom_colors_iter_index(&self) -> impl Iterator<Item = (usize, &Rgb)> + '_ {
+        self.custom_colors
+            .iter()
+            .enumerate()
+            .filter_map(|(u, c)| c.as_ref().map(|c| (u, c)))
+    }
+    /// Get an iterator over custom color (as ChartColors) and their RGB values.
+    /// ```
+    /// # use napchart::*;
+    /// use colorsys::Rgb;
+    /// let mut chart = Napchart::default();
+    ///
+    /// chart.set_custom_color(ChartColor::Custom2, Rgb::from((0xDE, 0xDB, 0xEF)));
+    /// chart.set_custom_color(ChartColor::Custom0, Rgb::from((0xB0, 0x0B, 0xE5)));
+    /// let mut iter = chart.custom_colors_iter_color();
+    /// assert_eq!(iter.next(), Some((ChartColor::Custom0, &Rgb::from((0xB0, 0x0B, 0xE5)))));
+    /// assert_eq!(iter.next(), Some((ChartColor::Custom2, &Rgb::from((0xDE, 0xDB, 0xEF)))));
+    /// assert!(iter.next().is_none());
+    /// ```
+    pub fn custom_colors_iter_color(&self) -> impl Iterator<Item = (ChartColor, &Rgb)> + '_ {
+        self.custom_colors
+            .iter()
+            .enumerate()
+            .filter_map(|(u, c)| c.as_ref().map(|c| (u, c)))
+            .map(|(u, c)| (ChartColor::from_index(u), c))
+    }
+    /// Sets the rgb value of a custom color, returning the previous value.
+    /// May only be called with CustomX ChartColors (asserts ChartColor::is_custom).
+    /// ```
+    /// # use napchart::*;
+    /// use colorsys::Rgb;
+    /// let mut chart = Napchart::default();
+    ///
+    /// assert!(chart.get_custom_color(ChartColor::Custom0).is_none());
+    ///
+    /// chart.set_custom_color(ChartColor::Custom0, Rgb::from_hex_str("DEDBEF").unwrap());
+    /// assert_eq!(chart.get_custom_color(ChartColor::Custom0), Some(&Rgb::from((0xDE, 0xDB, 0xEF))));
+    /// ```
     pub fn set_custom_color(&mut self, id: ChartColor, color: Rgb) -> Option<Rgb> {
         assert!(id.is_custom());
         let i = id.custom_index().unwrap();
-        let old = self.custom_colors[i].take();
-        self.custom_colors[i] = Some(color);
-        old
+        self.custom_colors[i].replace(color)
+    }
+    /// Unsets the rgb value of a custom color, returning the previous value.
+    /// May only be called with CustomX ChartColors (asserts ChartColor::is_custom).
+    /// Also removes the color_tag associated with the custom color.
+    /// (See [_unchecked](#method.remove_custom_color_unchecked))
+    /// ```
+    /// # use napchart::*;
+    /// use colorsys::Rgb;
+    /// let mut chart = Napchart::default();
+    ///
+    /// chart.set_custom_color(ChartColor::Custom0, Rgb::from_hex_str("DEDBEF").unwrap());
+    /// chart.set_color_tag(ChartColor::Custom0, "Dead Beef").unwrap();
+    ///
+    /// chart.remove_custom_color(ChartColor::Custom0);
+    ///
+    /// assert!(chart.get_custom_color(ChartColor::Custom0).is_none());
+    /// assert!(chart.get_color_tag(ChartColor::Custom0).is_none());
+    /// ```
+    pub fn remove_custom_color(&mut self, id: ChartColor) -> Option<Rgb> {
+        assert!(id.is_custom());
+        self.remove_color_tag(id.clone());
+        self.remove_custom_color_unchecked(id)
+    }
+    /// Unsets the rgb value of a custom color, returning the previous value.
+    /// May only be called with CustomX ChartColors (asserts ChartColor::is_custom).
+    /// Does not remove a color_tag associated with the custom color.
+    /// It is invalid/undefined behavior to upload a napchart that uses a custom color without
+    /// defining its colorvalue,, "uses" meaning "has a color tag" and/or "is set on an element".
+    /// ```
+    /// # use napchart::*;
+    /// use colorsys::Rgb;
+    /// let mut chart = Napchart::default();
+    ///
+    /// chart.set_custom_color(ChartColor::Custom0, Rgb::from_hex_str("DEDBEF").unwrap());
+    /// chart.set_color_tag(ChartColor::Custom0, "Dead Beef").unwrap();
+    ///
+    /// chart.remove_custom_color_unchecked(ChartColor::Custom0);
+    ///
+    /// assert!(chart.get_custom_color(ChartColor::Custom0).is_none());
+    /// assert!(chart.get_color_tag(ChartColor::Custom0).is_some()); // UB if uploaded!
+    /// ```
+    pub fn remove_custom_color_unchecked(&mut self, id: ChartColor) -> Option<Rgb> {
+        assert!(id.is_custom());
+        let i = id.custom_index().unwrap();
+        self.custom_colors[i].take()
     }
 }
 /// Builder functions to create new napcharts.
