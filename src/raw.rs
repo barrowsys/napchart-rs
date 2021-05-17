@@ -18,6 +18,7 @@ use std::collections::HashMap;
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ChartUploadRequest {
+    // #[serde(rename = "chartData")]
     pub(crate) chart_data: ChartSchema,
     pub(crate) title: Option<String>,
     pub(crate) description: Option<String>,
@@ -26,20 +27,26 @@ pub(crate) struct ChartUploadRequest {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ChartCreationReturn {
+    // #[serde(rename = "chartDocument")]
     pub(crate) chart_document: ChartDocument,
+    // #[serde(rename = "publicLink")]
     pub(crate) public_link: String,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ChartDocument {
+    // #[serde(rename = "chartData")]
     pub(crate) chart_data: ChartSchema,
     pub(crate) chartid: String,
     pub(crate) title: Option<String>,
     pub(crate) description: Option<String>,
     pub(crate) username: String,
+    // #[serde(rename = "lastUpdated")]
     pub(crate) last_updated: String,
+    // #[serde(rename = "isSnapshot")]
     pub(crate) is_snapshot: bool,
+    // #[serde(rename = "isPrivate")]
     pub(crate) is_private: bool,
 }
 
