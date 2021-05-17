@@ -104,7 +104,7 @@ mod raw;
 mod error;
 pub use error::ErrorKind;
 use error::Result;
-type StdResult<T, E> = std::result::Result<T, E>;
+// type StdResult<T, E> = std::result::Result<T, E>;
 
 /// Contains aliases to the useful imports.
 /// ```
@@ -889,26 +889,30 @@ impl TryFrom<Napchart> for raw::ChartSchema {
         Ok(raw::ChartSchema {
             lanes: chart.lanes.len(),
             shape: chart.shape.to_string(),
-            // Iter of chart lane -> map to
-            // Iter of raw::LaneConfig -> enumerate to
-            // Iter of (index, raw::LaneConfig)
-            lanesConfig: chart
+            // Iter<chart lane>         -> map to
+            // Iter<raw::LaneConfig>    -> enumerate to
+            // Iter<(index, raw::LaneConfig)>
+            lanes_config: chart
                 .lanes
                 .iter()
                 .map(|l| raw::LaneConfig { locked: l.locked })
                 .enumerate()
                 .collect(),
-            // Iter<chart lane>                             -> enumerate to
-            // Iter<(lane index, chart lane)>               -> map to
-            // Iter<chart element>, Repeat<lane index>      -> zip to
-            // Iter<Iter<(chart element, lane index)>>      -> flatten to
-            // Iter<(chart element, lane index)>            -> map to
+            // Iter<chart lane>                         -> enumerate to
+            // Iter<(lane index, chart lane)>           -> map to
+            // Iter<(
+            //     Iter<chart element>,
+            //     Repeat<lane index>
+            // )>                                       -> map(zip) to
+            // Iter<Iter<(chart element, lane index)>>  -> flatten to
+            // Iter<(chart element, lane index)>        -> map to
             // Iter<raw::ChartElement>
             elements: chart
                 .lanes
                 .into_iter()
                 .enumerate()
-                .flat_map(|(i, l)| l.elements.into_iter().zip(repeat(i)))
+                .map(|(i, l)| (l.elements.into_iter(), repeat(i)))
+                .flat_map(|(s, o)| s.zip(o))
                 .map(|(e, i)| raw::ChartElement {
                     start: e.start,
                     end: e.end,
@@ -917,20 +921,23 @@ impl TryFrom<Napchart> for raw::ChartSchema {
                     color: e.data.color.to_string(),
                 })
                 .collect(),
-            colorTags: chart
+            // Iter<(ChartColor, String)>               -> map to
+            // Iter<(ChartColor, String, ColorValue)>   -> map to
+            // Iter<ColorTag>
+            color_tags: chart
                 .color_tags
                 .into_iter()
                 .map(|(color, tag)| {
-                    let custom_color = color
+                    let rgb = color
                         .custom_index()
                         .map(|i| custom_colors[i].as_ref().map(Rgb::to_css_string))
                         .flatten();
-                    (color, tag, custom_color)
+                    (color, tag, rgb)
                 })
-                .map(|(color, tag, custom_color)| raw::ColorTag {
+                .map(|(color, tag, rgb)| raw::ColorTag {
                     tag,
                     color: color.to_string(),
-                    colorValue: custom_color,
+                    color_value: rgb,
                 })
                 .collect(),
         })
@@ -941,41 +948,41 @@ impl TryFrom<raw::ChartCreationReturn> for RemoteNapchart {
     type Error = ErrorKind;
     fn try_from(raw: raw::ChartCreationReturn) -> Result<RemoteNapchart> {
         Ok(RemoteNapchart {
-            chartid: raw.chartDocument.chartid,
-            title: raw.chartDocument.title.none_if_empty(),
-            description: raw.chartDocument.description.none_if_empty(),
-            username: if &raw.chartDocument.username == "anonymous" {
+            chartid: raw.chart_document.chartid,
+            title: raw.chart_document.title.none_if_empty(),
+            description: raw.chart_document.description.none_if_empty(),
+            username: if &raw.chart_document.username == "anonymous" {
                 None
             } else {
-                Some(raw.chartDocument.username)
+                Some(raw.chart_document.username)
             },
-            last_updated: raw.chartDocument.lastUpdated.parse()?,
-            is_snapshot: raw.chartDocument.isSnapshot,
-            public_link: raw.publicLink.none_if_empty(),
+            last_updated: raw.chart_document.last_updated.parse()?,
+            is_snapshot: raw.chart_document.is_snapshot,
+            public_link: raw.public_link.none_if_empty(),
             chart: Napchart {
-                shape: raw.chartDocument.chartData.shape.parse()?,
+                shape: raw.chart_document.chart_data.shape.parse()?,
                 lanes: {
                     // Initialize lanes vector with capacity
-                    let mut vec = Vec::with_capacity(raw.chartDocument.chartData.lanes);
+                    let mut vec = Vec::with_capacity(raw.chart_document.chart_data.lanes);
                     // Initialize each lane with its LaneConfig and an empty elements vec
-                    for i in 0..raw.chartDocument.chartData.lanes {
+                    for i in 0..raw.chart_document.chart_data.lanes {
                         vec.push(ChartLane {
                             locked: raw
-                                .chartDocument
-                                .chartData
-                                .lanesConfig
+                                .chart_document
+                                .chart_data
+                                .lanes_config
                                 .get(&i)
                                 .map(|c| c.locked)
                                 .unwrap_or(false),
                             elements: vec![],
                         });
                     }
-                    for e in raw.chartDocument.chartData.elements.into_iter() {
+                    for e in raw.chart_document.chart_data.elements.into_iter() {
                         // Get the element's lane out of the vec as an Option<Lane>
                         // Map the Option<Lane> to a Option<Vec<Element>>
                         // Map the Option<Lane> to a Result<Lane, ErrorKind::InvalidLane>
                         let lane = vec.get_mut(e.lane).map(|l| &mut l.elements).ok_or(
-                            ErrorKind::InvalidLane(e.lane, raw.chartDocument.chartData.lanes),
+                            ErrorKind::InvalidLane(e.lane, raw.chart_document.chart_data.lanes),
                         )?;
                         lane.push(ChartElement {
                             start: e.start,
@@ -990,23 +997,28 @@ impl TryFrom<raw::ChartCreationReturn> for RemoteNapchart {
                 },
                 custom_colors: {
                     let mut r = [None, None, None, None];
-                    raw.chartDocument
-                        .chartData
-                        .colorTags
+                    // Iter<ColorTag>                       -> map to
+                    // Iter<(color name, Opt<rgb str>)>     -> parse to
+                    // Iter<Opt<(ChartColor, Opt<&str>)>>   -> filter to
+                    // Iter<(ChartColor, Opt<&str>)>        -> map to
+                    // Iter<(ChartColor, Opt<Res<Rgb>>)>    -> transpose to
+                    // Iter<(ChartColor, Res<Opt<Rgb>>)>    -> ok to
+                    // Iter<(ChartColor, Opt<Opt<Rgb>>)>    -> flatten to
+                    // Iter<(ChartColor, Opt<Rgb>)>         -> foreach
+                    raw.chart_document
+                        .chart_data
+                        .color_tags
                         .iter()
                         .filter_map(|tag| {
-                            tag.color
-                                .parse::<ChartColor>()
-                                .ok()
-                                .map(|color| (color, tag.colorValue.as_deref()))
+                            Some((
+                                tag.color.parse::<ChartColor>().ok()?,
+                                tag.color_value.as_deref(),
+                            ))
                         })
                         .map(|(color, color_str)| {
                             (
                                 color,
-                                color_str
-                                    .map(Rgb::from_hex_str)
-                                    .map(StdResult::ok)
-                                    .flatten(),
+                                color_str.map(Rgb::from_hex_str).transpose().ok().flatten(),
                             )
                         })
                         .for_each(|(color, color_value)| match color {
@@ -1019,16 +1031,15 @@ impl TryFrom<raw::ChartCreationReturn> for RemoteNapchart {
                     r
                 },
                 // Iter<ColorTag>                           -> map to
-                // Iter<color string>                       -> parse to
-                // Iter<Result<ChartColor>>                 -> ok to
-                // Iter<Option<ChartColor>>                 -> map to
-                // Iter<Option<(ChartColor, tag string)>>   -> filter to
-                // Iter<(ChartColor, tag string)>           -> collect to
-                // HashMap<ChartColor, String>
+                // Iter<(color string, tag>                 -> parse to
+                // Iter<(Result<color>, tag)>               -> prop error
+                // Iter<Result<(color, tag)>>               -> collect to
+                // Result<HashMap<ChartColor, String>>      -> prop error
+                // HashMap<ChartColor, tag>
                 color_tags: raw
-                    .chartDocument
-                    .chartData
-                    .colorTags
+                    .chart_document
+                    .chart_data
+                    .color_tags
                     .into_iter()
                     .map(|tag| Ok((tag.color.parse()?, tag.tag)))
                     .collect::<Result<HashMap<ChartColor, String>>>()?,

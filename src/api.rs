@@ -74,7 +74,7 @@ impl<'c> UploadBuilder<'c> {
     }
     fn build(self) -> Result<raw::ChartUploadRequest> {
         Ok(raw::ChartUploadRequest {
-            chartData: self.chart.clone().try_into()?,
+            chart_data: self.chart.clone().try_into()?,
             title: self.title,
             description: self.description,
         })

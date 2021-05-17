@@ -11,48 +11,50 @@
  * -Ezra Barrow
  * --------------------
  */
-#![allow(non_snake_case)]
 
-// use crate::error::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-// use std::convert::{TryFrom, TryInto};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct ChartUploadRequest {
-    pub(crate) chartData: ChartSchema,
+    pub(crate) chart_data: ChartSchema,
     pub(crate) title: Option<String>,
     pub(crate) description: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct ChartCreationReturn {
-    pub(crate) chartDocument: ChartDocument,
-    pub(crate) publicLink: String,
+    pub(crate) chart_document: ChartDocument,
+    pub(crate) public_link: String,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct ChartDocument {
-    pub(crate) chartData: ChartSchema,
+    pub(crate) chart_data: ChartSchema,
     pub(crate) chartid: String,
     pub(crate) title: Option<String>,
     pub(crate) description: Option<String>,
     pub(crate) username: String,
-    pub(crate) lastUpdated: String,
-    pub(crate) isSnapshot: bool,
-    pub(crate) isPrivate: bool,
+    pub(crate) last_updated: String,
+    pub(crate) is_snapshot: bool,
+    pub(crate) is_private: bool,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct ChartSchema {
     pub(crate) elements: Vec<ChartElement>,
     pub(crate) lanes: usize,
-    pub(crate) lanesConfig: HashMap<usize, LaneConfig>,
+    pub(crate) lanes_config: HashMap<usize, LaneConfig>,
     pub(crate) shape: String,
-    pub(crate) colorTags: Vec<ColorTag>,
+    pub(crate) color_tags: Vec<ColorTag>,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct ChartElement {
     pub(crate) start: u16,
     pub(crate) end: u16,
@@ -62,15 +64,17 @@ pub(crate) struct ChartElement {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct ColorTag {
     pub(crate) tag: String,
     pub(crate) color: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    pub(crate) colorValue: Option<String>,
+    pub(crate) color_value: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct LaneConfig {
     pub(crate) locked: bool,
 }
