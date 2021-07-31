@@ -11,66 +11,59 @@
  * -Ezra Barrow
  * --------------------
  */
-#![allow(non_snake_case)]
 
-// use crate::error::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-// use std::convert::{TryFrom, TryInto};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct ChartUploadRequest {
-    pub(crate) chartData: ChartSchema,
+    pub(crate) chart_data: ChartSchema,
     pub(crate) title: Option<String>,
     pub(crate) description: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct ChartCreationReturn {
-    pub(crate) chartDocument: ChartDocument,
-    pub(crate) publicLink: String,
+    pub(crate) chart_document: ChartDocument,
+    pub(crate) public_link: String,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct ChartDocument {
-    pub(crate) chartData: ChartSchema,
-    pub(crate) chartid: String,
-    pub(crate) title: Option<String>,
-    pub(crate) description: Option<String>,
-    pub(crate) username: String,
-    pub(crate) lastUpdated: String,
-    pub(crate) isSnapshot: bool,
-    pub(crate) isPrivate: bool,
+    pub(crate) chart_data: ChartSchema,
+    #[serde(flatten)]
+    pub(crate) metadata: crate::RemoteNapchart,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct ChartSchema {
-    pub(crate) elements: Vec<ChartElement>,
     pub(crate) lanes: usize,
-    pub(crate) lanesConfig: HashMap<usize, LaneConfig>,
-    pub(crate) shape: String,
-    pub(crate) colorTags: Vec<ColorTag>,
-}
-
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
-pub(crate) struct ChartElement {
-    pub(crate) start: u16,
-    pub(crate) end: u16,
-    pub(crate) lane: usize,
-    pub(crate) text: Option<String>,
-    pub(crate) color: String,
-}
-
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
-pub(crate) struct ColorTag {
-    pub(crate) tag: String,
-    pub(crate) color: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
-    pub(crate) colorValue: Option<String>,
+    pub(crate) shape: crate::ChartShape,
+    pub(crate) elements: Vec<LanedChartElement>,
+    pub(crate) lanes_config: HashMap<usize, LaneConfig>,
+    pub(crate) color_tags: Vec<ColorTag>,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub(crate) struct LaneConfig {
     pub(crate) locked: bool,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub(crate) struct LanedChartElement {
+    pub(crate) lane: usize,
+    #[serde(flatten)]
+    pub(crate) element: crate::ChartElement,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub(crate) struct ColorTag {
+    pub(crate) tag: String,
+    pub(crate) color: crate::ChartColor,
+    #[serde(rename = "colorValue")]
+    pub(crate) rgb: Option<String>,
 }

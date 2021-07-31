@@ -29,7 +29,7 @@
 //! Add to your Cargo.toml:
 //! ```text
 //! [dependencies]
-//! napchart = "0.2"
+//! napchart = "0.3"
 //! ```
 //!
 //! ## Examples
@@ -91,6 +91,7 @@
 use chrono::prelude::*;
 use colorsys::Rgb;
 use noneifempty::NoneIfEmpty;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::iter::repeat;
@@ -104,7 +105,6 @@ mod raw;
 mod error;
 pub use error::ErrorKind;
 use error::Result;
-type StdResult<T, E> = std::result::Result<T, E>;
 
 /// Contains aliases to the useful imports.
 /// ```
@@ -125,8 +125,9 @@ pub mod prelude {
     pub use super::RemoteNapchart;
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
 #[allow(missing_docs)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 /// The shape of a napchart
 pub enum ChartShape {
     Circle,
@@ -136,15 +137,6 @@ pub enum ChartShape {
 impl Default for ChartShape {
     fn default() -> Self {
         Self::Circle
-    }
-}
-impl ToString for ChartShape {
-    fn to_string(&self) -> String {
-        match self {
-            ChartShape::Circle => String::from("circle"),
-            ChartShape::Wide => String::from("wide"),
-            ChartShape::Line => String::from("line"),
-        }
     }
 }
 impl FromStr for ChartShape {
@@ -158,33 +150,33 @@ impl FromStr for ChartShape {
         })
     }
 }
+impl ToString for ChartShape {
+    fn to_string(&self) -> String {
+        match self {
+            ChartShape::Circle => String::from("circle"),
+            ChartShape::Wide => String::from("wide"),
+            ChartShape::Line => String::from("line"),
+        }
+    }
+}
 
 // #[allow(missing_docs)]
-// #[derive(Clone, Debug, PartialEq)]
-// /// The tag associated with a color.
-// /// Also holds the rgb value associated with a custom color.
-// pub enum ColorTag {
-//     Builtin(String),
-//     Custom(String, Rgb),
-// }
-// impl ColorTag {
-//     fn from_raw(s: String, c: Option<String>) -> Result<Self> {
-//         if let Some(c) = c {
-//             Ok(Self::Custom(s, Rgb::from_hex_str(&c)?))
-//         } else {
-//             Ok(Self::Builtin(s))
-//         }
-//     }
-//     fn unwrap(self) -> (String, Option<Rgb>) {
-//         match self {
-//             Self::Builtin(s) => (s, None),
-//             Self::Custom(s, c) => (s, Some(c)),
-//         }
-//     }
+// #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+// /// The colors available for chart elements
+// pub enum BuiltinColors {
+//     Red,
+//     Blue,
+//     Brown,
+//     Green,
+//     Gray,
+//     Yellow,
+//     Purple,
+//     Pink,
 // }
 
 #[allow(missing_docs)]
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 /// The colors available for chart elements
 pub enum ChartColor {
     Red,
@@ -195,9 +187,13 @@ pub enum ChartColor {
     Yellow,
     Purple,
     Pink,
+    #[serde(rename = "custom_0")]
     Custom0,
+    #[serde(rename = "custom_1")]
     Custom1,
+    #[serde(rename = "custom_2")]
     Custom2,
+    #[serde(rename = "custom_3")]
     Custom3,
 }
 impl ChartColor {
@@ -673,7 +669,8 @@ impl Napchart {
 
 /// A napchart downloaded from <https://napchart.com>.
 /// Includes extra metadata around the internal Napchart, such as the chart's ID, title, author, update time, etc.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RemoteNapchart {
     /// The chart's ID code. Chartids are unique.
     /// Should be in one of the following formats:
@@ -683,9 +680,9 @@ pub struct RemoteNapchart {
     /// * 9 chars user chart (`napchart.com/:user/xxxxxxxxx`)
     /// * 9 chars user chart with title (`napchart.com/:user/Some-title-here-xxxxxxxxx`)
     pub chartid: String,
-    /// The title of the napchart, or None if empty
+    /// The title of the napchart, or None if unset
     pub title: Option<String>,
-    /// The description of the napchart, or None if empty
+    /// The description of the napchart, or None if unset
     pub description: Option<String>,
     /// The user that saved this napchart, or None if anonymous
     pub username: Option<String>,
@@ -693,9 +690,13 @@ pub struct RemoteNapchart {
     pub last_updated: DateTime<Utc>,
     /// True if this napchart was saved as a snapshot
     pub is_snapshot: bool,
+    /// True if this napchart is private
+    pub is_private: bool,
+    #[serde(skip)]
     /// The public link to this napchart.
     /// (Note: We should be able to generate this from the other metadata)
-    pub public_link: Option<String>,
+    public_link: Option<String>,
+    #[serde(skip)]
     /// The chart itself
     pub chart: Napchart,
 }
@@ -823,10 +824,11 @@ impl ChartLane {
 }
 
 /// A single element in a napchart.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChartElement {
     start: u16,
     end: u16,
+    #[serde(flatten)]
     /// Additional metadata for the element.
     pub data: ElementData,
 }
@@ -853,10 +855,10 @@ impl ChartElement {
     /// let mut chart = Napchart::default();
     /// let mut lane = chart.add_lane();
     /// let elem = lane.add_element(0, 60).unwrap().text("Hour One");
-    /// assert_eq!(elem.data.text, Some(String::from("Hour One")));
+    /// assert_eq!(elem.data.text, String::from("Hour One"));
     /// ```
     pub fn text<T: ToString>(&mut self, text: T) -> &mut Self {
-        self.data.text = Some(text.to_string());
+        self.data.text = text.to_string();
         self
     }
     /// &mut builder function to set the color of an element.
@@ -874,10 +876,10 @@ impl ChartElement {
 }
 
 /// Additional metadata for an element.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ElementData {
     /// The text description attached to the element
-    pub text: Option<String>,
+    pub text: String,
     /// The element's color
     pub color: ChartColor,
 }
@@ -885,53 +887,31 @@ pub struct ElementData {
 impl TryFrom<Napchart> for raw::ChartSchema {
     type Error = ErrorKind;
     fn try_from(chart: Napchart) -> Result<raw::ChartSchema> {
-        let custom_colors = chart.custom_colors;
+        let cc = chart.custom_colors;
         Ok(raw::ChartSchema {
             lanes: chart.lanes.len(),
-            shape: chart.shape.to_string(),
-            // Iter of chart lane -> map to
-            // Iter of raw::LaneConfig -> enumerate to
-            // Iter of (index, raw::LaneConfig)
-            lanesConfig: chart
+            shape: chart.shape,
+            lanes_config: chart
                 .lanes
                 .iter()
                 .map(|l| raw::LaneConfig { locked: l.locked })
                 .enumerate()
                 .collect(),
-            // Iter<chart lane>                             -> enumerate to
-            // Iter<(lane index, chart lane)>               -> map to
-            // Iter<chart element>, Repeat<lane index>      -> zip to
-            // Iter<Iter<(chart element, lane index)>>      -> flatten to
-            // Iter<(chart element, lane index)>            -> map to
-            // Iter<raw::ChartElement>
             elements: chart
                 .lanes
                 .into_iter()
                 .enumerate()
-                .flat_map(|(i, l)| l.elements.into_iter().zip(repeat(i)))
-                .map(|(e, i)| raw::ChartElement {
-                    start: e.start,
-                    end: e.end,
-                    lane: i,
-                    text: e.data.text,
-                    color: e.data.color.to_string(),
-                })
+                .map(|(i, l)| (repeat(i), l.elements.into_iter()))
+                .flat_map(|(i, l)| i.zip(l))
+                .map(|(lane, element)| raw::LanedChartElement { lane, element })
                 .collect(),
-            colorTags: chart
+            color_tags: chart
                 .color_tags
                 .into_iter()
-                .map(|(color, tag)| {
-                    let custom_color = color
-                        .custom_index()
-                        .map(|i| custom_colors[i].as_ref().map(Rgb::to_css_string))
-                        .flatten();
-                    (color, tag, custom_color)
-                })
-                .map(|(color, tag, custom_color)| raw::ColorTag {
-                    tag,
-                    color: color.to_string(),
-                    colorValue: custom_color,
-                })
+                .map(|(color, tag)| (color.custom_index(), color, tag))
+                .map(|(rgb, color, tag)| (rgb.and_then(|i| cc[i].as_ref()), color, tag))
+                .map(|(rgb, color, tag)| (rgb.map(Rgb::to_css_string), color, tag))
+                .map(|(rgb, color, tag)| raw::ColorTag { tag, color, rgb })
                 .collect(),
         })
     }
@@ -940,99 +920,49 @@ impl TryFrom<Napchart> for raw::ChartSchema {
 impl TryFrom<raw::ChartCreationReturn> for RemoteNapchart {
     type Error = ErrorKind;
     fn try_from(raw: raw::ChartCreationReturn) -> Result<RemoteNapchart> {
-        Ok(RemoteNapchart {
-            chartid: raw.chartDocument.chartid,
-            title: raw.chartDocument.title.none_if_empty(),
-            description: raw.chartDocument.description.none_if_empty(),
-            username: if &raw.chartDocument.username == "anonymous" {
-                None
-            } else {
-                Some(raw.chartDocument.username)
+        use raw::ColorTag;
+        let cd = raw.chart_document.chart_data;
+        let lc = cd.lanes_config;
+        let meta = raw.chart_document.metadata;
+        let meta = RemoteNapchart {
+            public_link: raw.public_link.none_if_empty(),
+            username: meta.username.filter(|u| u != "anonymous"),
+            ..meta
+        };
+        let chart = Napchart {
+            shape: cd.shape,
+            custom_colors: {
+                let r = [None, None, None, None];
+                cd.color_tags
+                    .iter()
+                    .map(|ColorTag { color, rgb, .. }| (color.custom_index(), rgb.as_deref()))
+                    .filter_map(|(color, rgb)| Option::zip(color, rgb))
+                    .try_fold::<[_; 4], _, Result<_>>(r, |mut r, (color, rgb)| {
+                        r[color] = Some(Rgb::from_hex_str(rgb)?);
+                        Ok(r)
+                    })?
             },
-            last_updated: raw.chartDocument.lastUpdated.parse()?,
-            is_snapshot: raw.chartDocument.isSnapshot,
-            public_link: raw.publicLink.none_if_empty(),
-            chart: Napchart {
-                shape: raw.chartDocument.chartData.shape.parse()?,
-                lanes: {
-                    // Initialize lanes vector with capacity
-                    let mut vec = Vec::with_capacity(raw.chartDocument.chartData.lanes);
-                    // Initialize each lane with its LaneConfig and an empty elements vec
-                    for i in 0..raw.chartDocument.chartData.lanes {
-                        vec.push(ChartLane {
-                            locked: raw
-                                .chartDocument
-                                .chartData
-                                .lanesConfig
-                                .get(&i)
-                                .map(|c| c.locked)
-                                .unwrap_or(false),
-                            elements: vec![],
-                        });
-                    }
-                    for e in raw.chartDocument.chartData.elements.into_iter() {
-                        // Get the element's lane out of the vec as an Option<Lane>
-                        // Map the Option<Lane> to a Option<Vec<Element>>
-                        // Map the Option<Lane> to a Result<Lane, ErrorKind::InvalidLane>
-                        let lane = vec.get_mut(e.lane).map(|l| &mut l.elements).ok_or(
-                            ErrorKind::InvalidLane(e.lane, raw.chartDocument.chartData.lanes),
-                        )?;
-                        lane.push(ChartElement {
-                            start: e.start,
-                            end: e.end,
-                            data: ElementData {
-                                text: e.text.none_if_empty(),
-                                color: e.color.parse()?,
-                            },
-                        });
-                    }
-                    vec
-                },
-                custom_colors: {
-                    let mut r = [None, None, None, None];
-                    raw.chartDocument
-                        .chartData
-                        .colorTags
-                        .iter()
-                        .filter_map(|tag| {
-                            tag.color
-                                .parse::<ChartColor>()
-                                .ok()
-                                .map(|color| (color, tag.colorValue.as_deref()))
-                        })
-                        .map(|(color, color_str)| {
-                            (
-                                color,
-                                color_str
-                                    .map(Rgb::from_hex_str)
-                                    .map(StdResult::ok)
-                                    .flatten(),
-                            )
-                        })
-                        .for_each(|(color, color_value)| match color {
-                            ChartColor::Custom0 => r[0] = color_value,
-                            ChartColor::Custom1 => r[1] = color_value,
-                            ChartColor::Custom2 => r[2] = color_value,
-                            ChartColor::Custom3 => r[3] = color_value,
-                            _ => {}
-                        });
-                    r
-                },
-                // Iter<ColorTag>                           -> map to
-                // Iter<color string>                       -> parse to
-                // Iter<Result<ChartColor>>                 -> ok to
-                // Iter<Option<ChartColor>>                 -> map to
-                // Iter<Option<(ChartColor, tag string)>>   -> filter to
-                // Iter<(ChartColor, tag string)>           -> collect to
-                // HashMap<ChartColor, String>
-                color_tags: raw
-                    .chartDocument
-                    .chartData
-                    .colorTags
+            color_tags: {
+                cd.color_tags
                     .into_iter()
-                    .map(|tag| Ok((tag.color.parse()?, tag.tag)))
-                    .collect::<Result<HashMap<ChartColor, String>>>()?,
+                    .map(|tag| (tag.color, tag.tag))
+                    .collect()
             },
-        })
+            lanes: {
+                let mut vec: Vec<_> = (0..cd.lanes)
+                    .map(|i| lc.get(&i).map(|c| c.locked).unwrap_or(false))
+                    .map(|locked| (locked, ChartLane::default()))
+                    .map(|(locked, lane)| ChartLane { locked, ..lane })
+                    .collect();
+                for e in cd.elements.into_iter() {
+                    let lane = vec
+                        .get_mut(e.lane)
+                        .ok_or(ErrorKind::InvalidLane(e.lane, cd.lanes))?;
+                    lane.elements.push(e.element);
+                }
+                vec
+            },
+        };
+        Ok(RemoteNapchart { chart, ..meta })
     }
 }

@@ -74,7 +74,7 @@ impl<'c> UploadBuilder<'c> {
     }
     fn build(self) -> Result<raw::ChartUploadRequest> {
         Ok(raw::ChartUploadRequest {
-            chartData: self.chart.clone().try_into()?,
+            chart_data: self.chart.clone().try_into()?,
             title: self.title,
             description: self.description,
         })
@@ -126,6 +126,20 @@ impl BlockingClient {
             .json::<raw::ChartCreationReturn>()?
             .try_into()
     }
+    #[allow(dead_code)]
+    pub(crate) fn get_chart_raw<T: AsRef<str>>(
+        &self,
+        chartid: T,
+    ) -> Result<raw::ChartCreationReturn> {
+        Ok(self
+            .internal
+            .get(format!(
+                "https://api.napchart.com/v1/getChart/{}",
+                chartid.as_ref()
+            ))
+            .send()?
+            .json::<raw::ChartCreationReturn>()?)
+    }
 }
 
 /// Async <https://napchart.com> API client.
@@ -167,21 +181,32 @@ impl AsyncClient {
 mod tests {
     use super::*;
     use tokio::task::spawn_blocking;
+    // #[test]
+    // fn get_chart_raw() {
+    //     let client = BlockingClient::default();
+    //     let ccr = client.get_chart_raw("3tbkt").unwrap();
+    //     println!("{:#?}", ccr);
+    //     panic!();
+    // }
+    // #[test]
+    // fn get_custom_colors_raw() {
+    //     let client = BlockingClient::default();
+    //     let ccr = client.get_chart_raw("oo81DYL84").unwrap();
+    //     println!("{:#?}", ccr);
+    //     // panic!();
+    // }
     #[test]
     fn get_chart() {
         let client = BlockingClient::default();
         let rchart = client.get_chart("jex3y").unwrap();
         assert_eq!(rchart.chartid, "jex3y");
-        assert_eq!(
-            rchart.title,
-            Some("timemachine simple test chart".to_string())
-        );
-        assert_eq!(rchart.description, None);
+        assert_eq!(rchart.title, Some("simple test chart".to_string()));
+        assert!(rchart.description.is_none());
         assert_eq!(rchart.username, Some("barrow".to_string()));
         assert!(!rchart.is_snapshot);
         assert_eq!(
             rchart.public_link,
-            Some("https://napchart.com/barrow/timemachine-simple-test-chart-jex3y".to_string())
+            Some("https://napchart.com/barrow/simple-test-chart-jex3y".to_string())
         );
         let chart = rchart.chart;
         assert_eq!(chart.shape, crate::ChartShape::Circle);
@@ -195,6 +220,9 @@ mod tests {
     fn get_custom_colors() {
         let client = BlockingClient::default();
         let rchart = client.get_chart("oo81DYL84").unwrap();
+        // let chart = client.get_chart_raw("oo81DYL84").unwrap();
+        // println!("{:#?}", chart);
+        // let rchart: RemoteNapchart = chart.try_into().unwrap();
         let chart = rchart.chart;
         assert_eq!(chart.color_tags.len(), 12);
         let custom_0 = chart.color_tags.get(&crate::ChartColor::Custom0).unwrap();
@@ -223,7 +251,7 @@ mod tests {
             .create_snapshot(lchart.upload().title("napchart simple test chart"))
             .unwrap();
         assert_eq!(rchart.title, Some("napchart simple test chart".to_string()));
-        assert_eq!(rchart.description, None);
+        assert!(rchart.description.is_none());
         assert_eq!(rchart.username, None);
         assert!(rchart.is_snapshot);
         assert_eq!(rchart.chart, lchart);
@@ -245,8 +273,8 @@ mod tests {
         assert_eq!(elem2.end, 16 * 60);
         let elemd1 = &elem1.data;
         let elemd2 = &elem2.data;
-        assert_eq!(elemd1.text, None);
-        assert_eq!(elemd2.text, None);
+        assert_eq!(elemd1.text, String::new());
+        assert_eq!(elemd2.text, String::new());
         assert_eq!(elemd1.color, crate::ChartColor::Red);
         assert_eq!(elemd2.color, crate::ChartColor::Blue);
     }
