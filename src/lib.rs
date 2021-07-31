@@ -29,7 +29,7 @@
 //! Add to your Cargo.toml:
 //! ```text
 //! [dependencies]
-//! napchart = "0.2"
+//! napchart = "0.3"
 //! ```
 //!
 //! ## Examples
