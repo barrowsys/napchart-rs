@@ -855,7 +855,7 @@ impl ChartElement {
     /// let mut chart = Napchart::default();
     /// let mut lane = chart.add_lane();
     /// let elem = lane.add_element(0, 60).unwrap().text("Hour One");
-    /// assert_eq!(elem.data.text, Some(String::from("Hour One")));
+    /// assert_eq!(elem.data.text, String::from("Hour One"));
     /// ```
     pub fn text<T: ToString>(&mut self, text: T) -> &mut Self {
         self.data.text = text.to_string();
