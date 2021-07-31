@@ -273,8 +273,8 @@ mod tests {
         assert_eq!(elem2.end, 16 * 60);
         let elemd1 = &elem1.data;
         let elemd2 = &elem2.data;
-        assert_eq!(elemd1.text, None);
-        assert_eq!(elemd2.text, None);
+        assert_eq!(elemd1.text, String::new());
+        assert_eq!(elemd2.text, String::new());
         assert_eq!(elemd1.color, crate::ChartColor::Red);
         assert_eq!(elemd2.color, crate::ChartColor::Blue);
     }

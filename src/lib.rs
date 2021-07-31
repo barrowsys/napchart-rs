@@ -858,7 +858,7 @@ impl ChartElement {
     /// assert_eq!(elem.data.text, Some(String::from("Hour One")));
     /// ```
     pub fn text<T: ToString>(&mut self, text: T) -> &mut Self {
-        self.data.text = Some(text.to_string());
+        self.data.text = text.to_string();
         self
     }
     /// &mut builder function to set the color of an element.
@@ -879,7 +879,7 @@ impl ChartElement {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ElementData {
     /// The text description attached to the element
-    pub text: Option<String>,
+    pub text: String,
     /// The element's color
     pub color: ChartColor,
 }
